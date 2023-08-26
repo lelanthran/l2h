@@ -168,7 +168,7 @@ static int token_read (struct token_t **dst,
 
 
       // Maybe at some point in the future we use a static LUT for this.
-      if (isalpha (c)) {
+      if (isalpha (c) || ispunct (c)) {
          size_t start = (*index) - 1;
          while ((c = getnextchar (input, input_len, index)) != EOF) {
             if (isspace (c) || c == '(' || c == ')') {
@@ -387,6 +387,8 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
 
       case node_UNKNOWN:
       default:
+         fprintf (stderr, "Unknown node type %i\n", node->type);
+         break;
    }
 
 }
@@ -399,42 +401,76 @@ static int parse (struct node_t **dst,
 
 
 /* ********************************************************
- * Main
+ * Main Functions
  */
-int main (int argc, char **argv)
+
+#define EXT       (".lisp")
+#define EXT_LEN   (strlen (EXT))
+
+static int process_file (const char *ifname)
 {
    static char line[1024 * 1024];
    size_t nlines = 0;
-   int ret = EXIT_FAILURE;
    char *input = NULL;
    size_t input_len = 0;
    struct node_t *root = NULL;
 
-   char *tmp;
-
+   int ret = EXIT_FAILURE;
    FILE *inf = NULL, *outf = NULL;
+   char *ofname = NULL;
+   char *tmp = NULL;
 
-   if (argc <= 2) {
-      fprintf (stderr, "Need two arguments: <input-file> <output-file>\n");
-      return EXIT_FAILURE;
-   }
-
-   if (!(inf = fopen (argv[1], "r"))) {
-      fprintf (stderr, "Failed to open [%s] for reading: %m\n", argv[1]);
+   if (!ifname) {
+      fprintf (stderr, "%s: NULL passed for input filename\n", ifname);
       goto cleanup;
    }
 
-   if (!(outf = fopen (argv[2], "w"))) {
-      fprintf (stderr, "Failed to open [%s] for writing: %m\n", argv[2]);
+   if (!(ofname = strdup (ifname))) {
+      fprintf (stderr, "%s: OOM error allocating output filename\n", ifname);
       goto cleanup;
+   }
+
+
+   if ((strcmp (ifname, "-")) == 0) {
+      ofname = strdup ("-");
+   } else {
+      tmp = strstr (ofname, EXT);
+      if (!tmp) {
+         fprintf (stderr, "%s: Input filename missing [%s]\n", ifname, EXT);
+         goto cleanup;
+      }
+       *tmp = 0;
+   }
+
+   if ((memcmp (&ifname[strlen(ifname) - strlen(EXT)], EXT, EXT_LEN)) != 0) {
+      fprintf (stderr, "%s: Input filename must end in [%s]\n", ifname, EXT);
+      goto cleanup;
+   }
+
+   if ((memcmp (ifname, "-", 2)) == 0) {
+      inf = stdin;
+   } else {
+      if (!(inf = fopen (ifname, "r"))) {
+         fprintf (stderr, "%s: opened\n", ifname);
+         fprintf (stderr, "%s: Failed to open [%s] for reading: %m\n", ifname, ifname);
+         goto cleanup;
+      }
+   }
+
+   if ((memcmp (ofname, "-", 2)) == 0) {
+      outf = stdout;
+   } else {
+      if (!(outf = fopen (ofname, "w"))) {
+         fprintf (stderr, "%s: opened\n", ofname);
+         fprintf (stderr, "%s: Failed to open [%s] for writing: %m\n", ifname, ofname);
+         goto cleanup;
+      }
    }
 
    while (!(feof (inf)) && !(ferror (inf)) && (fgets (line, sizeof line -1, inf))) {
       nlines++;
-      if ((tmp = strchr (line, '\n')))
-         *tmp = 0;
       if (!(collect_input (&input, &input_len, line))) {
-         fprintf (stderr, "OOM error reading line %zu\n", nlines);
+         fprintf (stderr, "%s: OOM error reading line %zu\n", ifname, nlines);
          goto cleanup;
       }
    }
@@ -443,38 +479,120 @@ int main (int argc, char **argv)
    input_len = strlen (input);
    int rc = parse (&root, input, input_len,  &index);
    if (rc < 0) {
-      fprintf (stderr, "Failed to parse input, aborting\n");
+      fprintf (stderr, "%s: Failed to parse input, aborting\n", ifname);
       goto cleanup;
    }
    if (rc == 0) {
-      fprintf (stderr, "Parsed all input\n");
+      fprintf (stderr, "%s: Parsed all input\n", ifname);
    }
    if (rc > 0) {
-      fprintf (stderr, "Unparsed input still in buffer\n");
+      fprintf (stderr, "%s: Unparsed input still in buffer\n", ifname);
+      goto cleanup;
    }
 
-
-   node_dump (root, 0);
    node_emit_html(root, 0, outf);
 
    ret = EXIT_SUCCESS;
-
 cleanup:
-   if (inf) {
+   if (inf && (strcmp (ifname, "-") != 0)) {
+      fprintf (stderr, "%s: closed\n", ifname);
       fclose (inf);
    }
-
-   if (outf) {
+   if (outf && (strcmp (ofname, "-") != 0)) {
+      fprintf (stderr, "%s: closed\n", ofname);
       fclose (outf);
    }
 
+   free (ofname);
+
    node_del (root);
    if (!nlines) {
-      fprintf (stderr, "No input provided. See the documentation for help\n");
+      fprintf (stderr, "%s: No input provided. See the documentation for help\n", ifname);
       goto cleanup;
    }
 
    free (input);
+   return ret;
+}
+
+static int process_dir (const char *ifname, bool recurse)
+{
+   (void)ifname;
+   (void)recurse;
+   return false;
+}
+
+
+int main (int argc, char **argv)
+{
+   int ret = EXIT_FAILURE;
+   bool flag_process_dir = false;
+   bool flag_recurse = false;
+   char **paths = NULL;
+   size_t npaths = 0;
+   size_t errcount = 0;
+
+   (void)argc;
+
+   for (size_t i=1; argv[i]; i++) {
+      if (argv[i][0] == '-') {
+         if ((memcmp (argv[i], "-r", 3))==0) {
+            flag_recurse = true;
+            continue;
+         }
+         if ((memcmp (argv[i], "-d", 3))==0) {
+            flag_process_dir = true;
+            continue;
+         }
+         fprintf (stderr, "Unrecognised flag [%s]\n", argv[i]);
+         errcount++;
+      } else {
+         char **tmp = realloc (paths, (npaths + 2) * (sizeof (*tmp)));
+         if (!tmp) {
+            fprintf (stderr, "OOM error allocating paths (%zu encountered), aborting\n", npaths);
+            goto cleanup;
+         }
+         tmp[npaths++] = argv[i];
+         tmp[npaths++] = NULL;
+         paths = tmp;
+      }
+   }
+
+   if (!paths) {
+      fprintf (stderr, "No pathnames specified, aborting\n");
+      errcount++;
+   }
+
+   if (errcount) {
+      fprintf (stderr, "Errors in invocation (%zu), aborting\n", errcount);
+      goto cleanup;
+   }
+
+   errcount = 0;
+
+   if (!flag_process_dir) {
+      for (size_t i=0; paths[i]; i++) {
+         if ((process_file(paths[i])) != EXIT_SUCCESS) {
+            fprintf (stderr, "Error processing [%s]\n", paths[i]);
+            errcount++;
+         }
+      }
+   }
+
+   if (flag_process_dir) {
+      for (size_t i=0; paths[i]; i++) {
+         if ((process_dir(paths[i], flag_recurse)) != EXIT_SUCCESS) {
+            fprintf (stderr, "Error processing [%s]\n", paths[i]);
+            errcount++;
+         }
+      }
+   }
+
+   ret = errcount;
+
+cleanup:
+   free (paths);
+   fprintf (stderr, "Exit-code: %i\n", ret);
    return ret;
 }
 
@@ -531,7 +649,6 @@ static int parser (struct node_t *parent,
 
       }
 
-      token_dump (tok, NULL);
       token_del (tok);
    }
    if (rc < 0) {

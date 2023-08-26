@@ -1,3 +1,7 @@
+=================================================================
 Add automatic output filename determination and enforcement of input file to
 end with .html.lisp
 
+=================================================================
+Allow recursive flag to make it easier to perform changes on an entire
+project.
