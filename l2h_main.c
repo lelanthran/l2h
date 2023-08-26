@@ -228,6 +228,7 @@ struct node_t {
    size_t attrs_len;
    struct node_t **children;
    size_t nchildren;
+   struct node_t *parent;
 };
 
 static void node_del (struct node_t *node)
@@ -254,6 +255,7 @@ static struct node_t *node_new (struct node_t *parent,
       return NULL;
    }
 
+   ret->parent = parent;
    ret->type = type;
    if (!(ret->value = strdup (value))) {
       fprintf (stderr, "OOM error allocating node->value\n");
@@ -308,13 +310,48 @@ static void node_dump (struct node_t *node, size_t indent)
       return;
 
    print_indent (indent, stdout);
-   printf ("[node: %s...%s]\n", node_type_text (node->type), node->value);
+   printf ("[node: %s...%s] %zu\n", node_type_text (node->type), node->value, node->nchildren);
 
    print_indent (indent, stdout);
    printf ("attributes=[%s]\n", node->attrs);
    for (size_t i=0; i<node->nchildren; i++) {
       node_dump (node->children[i], indent + 1);
    }
+}
+
+static size_t node_get_index (const struct node_t *node)
+{
+   if (node && node->parent) {
+      for (size_t i=0; i<node->parent->nchildren; i++) {
+         if (node->parent->children[i] == node) {
+            return i;
+         }
+      }
+
+   }
+   return (size_t)-1;
+}
+
+static enum node_type_t node_prev_type (const struct node_t *node)
+{
+   size_t node_idx = node_get_index (node);
+
+   if (!node->parent || node_idx == (size_t)-1 || node_idx == 0) {
+      return node_UNKNOWN;
+   }
+
+   return node->parent->children[node_idx -1]->type;
+}
+
+static bool node_is_final (const struct node_t *node)
+{
+   size_t node_idx = node_get_index (node);
+
+   if (node->parent && node_idx != (size_t)-1 && node_idx == (node->parent->nchildren - 1)) {
+      return true;
+   }
+
+   return false;
 }
 
 static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf)
@@ -324,12 +361,21 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
 
    switch (node->type) {
       case node_SYMBOL:
-         fprintf (outf, "%s\n", node->value);
+         if (node_prev_type (node) != node_SYMBOL) {
+            fputc ('\n', outf);
+            print_indent (indent, outf);
+         }
+         fprintf (outf, "%s ", node->value);
+         if (node_is_final (node)) {
+            fprintf (outf, "\n");
+         }
+
          break;
 
       case node_LIST:
+         fputc ('\n', outf);
          print_indent (indent, outf);
-         fprintf (outf, "<%s %s>\n", node->value, node->attrs);
+         fprintf (outf, "<%s %s>", node->value, node->attrs);
          for (size_t i=0; i<node->nchildren; i++) {
             node_emit_html (node->children[i], indent + 1, outf);
          }
