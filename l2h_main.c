@@ -17,9 +17,6 @@
 #include <stdint.h>
 #include <ctype.h>
 
-static bool collect_input (char **dst, size_t *dst_len, const char *line);
-static struct node_t *parse (const char *input, size_t input_len, size_t *index);
-
 static int getnextchar (const char *input, size_t input_len, size_t *index)
 {
    if (*index > input_len)
@@ -42,7 +39,6 @@ enum token_type_t {
    token_UNKNOWN = 0,
    token_OPEN_PAREN,
    token_CLOSE_PAREN,
-   token_COLON,
    token_SYMBOL,
    token_ATTR,
 };
@@ -55,7 +51,6 @@ static const char *token_type_text (enum token_type_t type) {
       { token_UNKNOWN,     "token_UNKNOWN"      },
       { token_OPEN_PAREN,  "token_OPEN_PAREN"   },
       { token_CLOSE_PAREN, "token_CLOSE_PAREN"  },
-      { token_COLON,       "token_COLON"        },
       { token_SYMBOL,      "token_SYMBOL"       },
       { token_ATTR,        "token_ATTR"         },
    };
@@ -117,7 +112,7 @@ static void token_dump (struct token_t *token, FILE *outf)
       return;
    }
 
-   fprintf (outf, "token: [%19s]...%s...]\n", token_type_text (token->type), token->text);
+   fprintf (outf, "token: [%19s...%s]\n", token_type_text (token->type), token->text);
 }
 
 // Returns -1 for error, 0 for EOF and 1 for token
@@ -201,10 +196,32 @@ static int token_read (struct token_t **dst,
  */
 enum node_type_t {
    node_UNKNOWN = 0,
-   node_STRING,
+   node_ATTR,
    node_SYMBOL,
    node_LIST,
 };
+
+static const char *node_type_text (enum node_type_t type)
+{
+   static const struct {
+      enum node_type_t type;
+      const char *text;
+   } arr[] = {
+      { node_UNKNOWN,   "node_UNKNOWN" },
+      { node_ATTR,      "node_ATTR"    },
+      { node_SYMBOL,    "node_SYMBOL"  },
+      { node_LIST,      "node_LIST"    },
+   };
+   static const size_t arr_len = sizeof arr / sizeof arr[0];
+
+   for (size_t i=0; i<arr_len; i++) {
+      if (arr[i].type == type) {
+         return arr[i].text;
+      }
+   }
+
+   return arr[0].text;
+}
 
 struct node_t {
    enum node_type_t type;
@@ -226,10 +243,12 @@ static void node_del (struct node_t *node)
 
    free (node->value);
    free (node->attrs);
+   free (node->children);
    free (node);
 }
 
-static struct node_t *node_new (enum node_type_t type, const char *value)
+static struct node_t *node_new (struct node_t *parent,
+                                enum node_type_t type, const char *value)
 {
    struct node_t *ret = calloc (1, sizeof *ret);
    if (!ret) {
@@ -242,6 +261,17 @@ static struct node_t *node_new (enum node_type_t type, const char *value)
       fprintf (stderr, "OOM error allocating node->value\n");
       node_del (ret);
       return NULL;
+   }
+
+   if (parent) {
+      struct node_t **tmp = realloc (parent->children, (parent->nchildren + 1) * (sizeof *tmp));
+      if (!tmp) {
+         fprintf (stderr, "OOM error appending child to parent\n");
+         node_del (ret);
+         return NULL;
+      }
+      tmp[parent->nchildren++] = ret;
+      parent->children = tmp;
    }
 
    return ret;
@@ -260,9 +290,9 @@ static bool node_add_attr (struct node_t *node, const char *attr)
    }
 
    tmp[node->attrs_len] = ' ';
-   strcpy (&tmp[node->attrs_len + 1], attr);
+   strcpy (&tmp[node->attrs_len+1], attr);
    node->attrs = tmp;
-   node->attrs_len += attr_len;
+   node->attrs_len += attr_len + 1;
    return true;
 }
 
@@ -279,12 +309,22 @@ static void node_dump (struct node_t *node, size_t indent)
    if (!node)
       return;
 
-   print_indent(indent); printf ("node: %s\n", node->value);
-   print_indent(indent); printf ("      %s\n", node->attrs);
+   print_indent(indent);
+   printf ("[node: %s...%s]\n", node_type_text (node->type), node->value);
+
+   print_indent(indent);
+   printf ("attributes=[%s]\n", node->attrs);
    for (size_t i=0; i<node->nchildren; i++) {
       node_dump (node->children[i], indent + 1);
    }
 }
+
+
+
+
+static bool collect_input (char **dst, size_t *dst_len, const char *line);
+static int parse (struct node_t **dst,
+                  const char *input, size_t input_len, size_t *index);
 
 
 /* ********************************************************
@@ -330,10 +370,18 @@ int main (int argc, char **argv)
 
    size_t index = 0;
    input_len = strlen (input);
-   if (!(root = parse (input, input_len,  &index))) {
+   int rc = parse (&root, input, input_len,  &index);
+   if (rc < 0) {
       fprintf (stderr, "Failed to parse input, aborting\n");
       goto cleanup;
    }
+   if (rc == 0) {
+      fprintf (stderr, "Parsed all input\n");
+   }
+   if (rc > 0) {
+      fprintf (stderr, "Unparsed input still in buffer\n");
+   }
+
 
    node_dump (root, 0);
 
@@ -358,13 +406,59 @@ cleanup:
    return ret;
 }
 
-static struct node_t *parse (const char *input, size_t input_len, size_t *index)
+// returns 0 for EOF, -1 for error and 1 for success
+static int parser (struct node_t *parent,
+                   const char *input, size_t input_len, size_t *index)
 {
-   struct node_t *root = node_new (node_SYMBOL, "root");
    struct token_t *tok;
    int rc;
    static char error_context[81];
+
    while ((rc = token_read (&tok, input, input_len, index)) > 0) {
+      switch (tok->type) {
+         case token_OPEN_PAREN:
+            token_del (tok);
+            if ((rc = token_read (&tok, input, input_len, index)) < 1) {
+               break;
+            }
+
+            struct node_t *root = node_new (parent, node_LIST, tok->text);
+            if (!root) {
+               fprintf (stderr, "OOM error constructing root node\n");
+               token_del (tok);
+               return -1;
+            }
+            rc = parser (root, input, input_len, index);
+            break;
+
+         case token_CLOSE_PAREN:
+            token_del (tok);
+            return 1;
+
+         case token_SYMBOL:
+            if (!(node_new (parent, node_SYMBOL, tok->text))) {
+               fprintf (stderr, "Failed to create node\n");
+               token_del (tok);
+               return -1;
+            }
+            break;
+
+         case token_ATTR:
+            if (!(node_add_attr(parent, tok->text))) {
+               fprintf (stderr, "Failed to add attribute\n");
+               token_del (tok);
+               return -1;
+            }
+            break;
+
+         case token_UNKNOWN:
+         default:
+            fprintf (stderr, "Unknown token [%s]\n", tok->text);
+            token_del (tok);
+            return -1;
+
+      }
+
       token_dump (tok, NULL);
       token_del (tok);
    }
@@ -377,9 +471,34 @@ static struct node_t *parse (const char *input, size_t input_len, size_t *index)
    }
 
 
-   return root;
+   return rc;
 }
 
+static int parse (struct node_t **dst,
+                  const char *input, size_t input_len, size_t *index)
+{
+   struct node_t *root = node_new (NULL, node_SYMBOL, "root");
+   if (!root) {
+      fprintf (stderr, "OOM error constructing root node\n");
+      return -1;
+   }
+
+   int rc;
+   if ((rc = parser (root, input, input_len, index)) < 0) {
+      fprintf (stderr, "Failed to parse\n");
+   }
+   if (rc == 0) {
+      fprintf (stderr, "Parsing complete\n");
+   }
+   if (rc == 1) {
+      fprintf (stderr, "Unexpected end of parsing\n");
+   }
+
+
+   *dst = root;
+
+   return rc;
+}
 
 static bool collect_input (char **dst, size_t *dst_len, const char *line)
 {
