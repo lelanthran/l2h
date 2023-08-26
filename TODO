@@ -1,0 +1,3 @@
+Add automatic output filename determination and enforcement of input file to
+end with .html.lisp
+
