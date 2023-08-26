@@ -196,7 +196,6 @@ static int token_read (struct token_t **dst,
  */
 enum node_type_t {
    node_UNKNOWN = 0,
-   node_ATTR,
    node_SYMBOL,
    node_LIST,
 };
@@ -208,7 +207,6 @@ static const char *node_type_text (enum node_type_t type)
       const char *text;
    } arr[] = {
       { node_UNKNOWN,   "node_UNKNOWN" },
-      { node_ATTR,      "node_ATTR"    },
       { node_SYMBOL,    "node_SYMBOL"  },
       { node_LIST,      "node_LIST"    },
    };
@@ -296,10 +294,10 @@ static bool node_add_attr (struct node_t *node, const char *attr)
    return true;
 }
 
-static void print_indent(size_t ilevel)
+static void print_indent(size_t ilevel, FILE *outf)
 {
    for (size_t i=0; i<(ilevel * 3); i++) {
-      putchar (' ');
+      fputc (' ', outf);
    }
 }
 
@@ -309,16 +307,41 @@ static void node_dump (struct node_t *node, size_t indent)
    if (!node)
       return;
 
-   print_indent(indent);
+   print_indent (indent, stdout);
    printf ("[node: %s...%s]\n", node_type_text (node->type), node->value);
 
-   print_indent(indent);
+   print_indent (indent, stdout);
    printf ("attributes=[%s]\n", node->attrs);
    for (size_t i=0; i<node->nchildren; i++) {
       node_dump (node->children[i], indent + 1);
    }
 }
 
+static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf)
+{
+   if (!node)
+      return;
+
+   switch (node->type) {
+      case node_SYMBOL:
+         fprintf (outf, "%s\n", node->value);
+         break;
+
+      case node_LIST:
+         print_indent (indent, outf);
+         fprintf (outf, "<%s %s>\n", node->value, node->attrs);
+         for (size_t i=0; i<node->nchildren; i++) {
+            node_emit_html (node->children[i], indent + 1, outf);
+         }
+         print_indent (indent, outf);
+         fprintf (outf, "</%s>\n", node->value);
+         break;
+
+      case node_UNKNOWN:
+      default:
+   }
+
+}
 
 
 
@@ -384,6 +407,7 @@ int main (int argc, char **argv)
 
 
    node_dump (root, 0);
+   node_emit_html(root, 0, outf);
 
    ret = EXIT_SUCCESS;
 
@@ -477,7 +501,7 @@ static int parser (struct node_t *parent,
 static int parse (struct node_t **dst,
                   const char *input, size_t input_len, size_t *index)
 {
-   struct node_t *root = node_new (NULL, node_SYMBOL, "root");
+   struct node_t *root = node_new (NULL, node_LIST, "root");
    if (!root) {
       fprintf (stderr, "OOM error constructing root node\n");
       return -1;
