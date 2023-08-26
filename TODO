@@ -1,7 +1,9 @@
 =================================================================
-Add automatic output filename determination and enforcement of input file to
-end with .html.lisp
+The input filename check must check for `.html.lisp`, not just
+`.lisp`, as this might be used in a lisp project.
+
 
 =================================================================
-Allow recursive flag to make it easier to perform changes on an entire
-project.
+Implement `process_dir` to recursively switch working directories
+and process each file in those directories that end in ".html.lisp"
+

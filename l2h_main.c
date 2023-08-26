@@ -17,6 +17,10 @@
 #include <stdint.h>
 #include <ctype.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 static int getnextchar (const char *input, size_t input_len, size_t *index)
 {
    if (*index > input_len)
@@ -483,7 +487,7 @@ static int process_file (const char *ifname)
       goto cleanup;
    }
    if (rc == 0) {
-      fprintf (stderr, "%s: Parsed all input\n", ifname);
+      fprintf (stderr, "%s: complete\n", ifname);
    }
    if (rc > 0) {
       fprintf (stderr, "%s: Unparsed input still in buffer\n", ifname);
@@ -495,11 +499,9 @@ static int process_file (const char *ifname)
    ret = EXIT_SUCCESS;
 cleanup:
    if (inf && (strcmp (ifname, "-") != 0)) {
-      fprintf (stderr, "%s: closed\n", ifname);
       fclose (inf);
    }
    if (outf && (strcmp (ofname, "-") != 0)) {
-      fprintf (stderr, "%s: closed\n", ofname);
       fclose (outf);
    }
 
@@ -519,14 +521,13 @@ static int process_dir (const char *ifname, bool recurse)
 {
    (void)ifname;
    (void)recurse;
-   return false;
+   return EXIT_FAILURE;
 }
 
 
 int main (int argc, char **argv)
 {
    int ret = EXIT_FAILURE;
-   bool flag_process_dir = false;
    bool flag_recurse = false;
    char **paths = NULL;
    size_t npaths = 0;
@@ -540,10 +541,6 @@ int main (int argc, char **argv)
             flag_recurse = true;
             continue;
          }
-         if ((memcmp (argv[i], "-d", 3))==0) {
-            flag_process_dir = true;
-            continue;
-         }
          fprintf (stderr, "Unrecognised flag [%s]\n", argv[i]);
          errcount++;
       } else {
@@ -552,8 +549,9 @@ int main (int argc, char **argv)
             fprintf (stderr, "OOM error allocating paths (%zu encountered), aborting\n", npaths);
             goto cleanup;
          }
+         fprintf (stderr, "Found [%s]\n", argv[i]);
          tmp[npaths++] = argv[i];
-         tmp[npaths++] = NULL;
+         tmp[npaths] = NULL;
          paths = tmp;
       }
    }
@@ -570,20 +568,24 @@ int main (int argc, char **argv)
 
    errcount = 0;
 
-   if (!flag_process_dir) {
-      for (size_t i=0; paths[i]; i++) {
+   for (size_t i=0; paths[i]; i++) {
+      struct stat sb;
+      if ((stat (paths[i], &sb)) != 0) {
+         fprintf (stderr, "Failed to stat [%s]: %m\n", paths[i]);
+         errcount++;
+         continue;
+      }
+      if (S_ISDIR (sb.st_mode)) {
+         if ((process_dir(paths[i], flag_recurse)) != EXIT_SUCCESS) {
+            fprintf (stderr, "Error processing [%s]: %m\n", paths[i]);
+            errcount++;
+            continue;
+         }
+      } else {
          if ((process_file(paths[i])) != EXIT_SUCCESS) {
             fprintf (stderr, "Error processing [%s]\n", paths[i]);
             errcount++;
-         }
-      }
-   }
-
-   if (flag_process_dir) {
-      for (size_t i=0; paths[i]; i++) {
-         if ((process_dir(paths[i], flag_recurse)) != EXIT_SUCCESS) {
-            fprintf (stderr, "Error processing [%s]\n", paths[i]);
-            errcount++;
+            continue;
          }
       }
    }
@@ -655,10 +657,6 @@ static int parser (struct node_t *parent,
       snprintf (error_context, sizeof error_context - 1, "%s", &input[(*index)-1]);
       fprintf (stderr, "Encountered an error while parsing near:\n%s\n", error_context);
    }
-   if (rc==0) {
-      fprintf (stderr, "Reached end of file\n");
-   }
-
 
    return rc;
 }
@@ -675,9 +673,6 @@ static int parse (struct node_t **dst,
    int rc;
    if ((rc = parser (root, input, input_len, index)) < 0) {
       fprintf (stderr, "Failed to parse\n");
-   }
-   if (rc == 0) {
-      fprintf (stderr, "Parsing complete\n");
    }
    if (rc == 1) {
       fprintf (stderr, "Unexpected end of parsing\n");
