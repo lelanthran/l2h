@@ -16,5 +16,5 @@ $(MAINPROG): $(OBS)
 	$(CC) $(CFLAGS) -o $@ $<
 
 clean:
-	rm -rfv $(OBS) $(MAINPROG)
+	rm -rfv $(OBS) $(MAINPROG) `find . | grep "\.html\$$"`
 
