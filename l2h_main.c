@@ -375,7 +375,9 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
       case node_LIST:
          fputc ('\n', outf);
          print_indent (indent, outf);
-         fprintf (outf, "<%s %s>", node->value, node->attrs);
+         const char *attrs = node->attrs ? node->attrs : "";
+         const char *delim = node->attrs ? " " : "";
+         fprintf (outf, "<%s%s%s>", node->value, delim, attrs);
          for (size_t i=0; i<node->nchildren; i++) {
             node_emit_html (node->children[i], indent + 1, outf);
          }
