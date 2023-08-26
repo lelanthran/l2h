@@ -1,11 +1,7 @@
 =================================================================
-Implement tokeniser to escape characters. Needed for representing
-actual '(' and ')' in the source.
-
-Probably not a bad idea to also test that stuff in quoted strings
-doesn't get mangled (don't think so, though; the code for that
-is so simple it's embarrassing - once a quote being read, everything
-is captured verbatim by the tokeniser).
+Need to keep track of spaces. Currently automatically adding
+whitespace of a tag is incorrect. Things like "<b>this</b>!"
+comes out wrong, with a space between the "this" and the "!".
 =================================================================
 
 

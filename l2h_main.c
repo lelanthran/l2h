@@ -150,6 +150,13 @@ static struct token_t *token_new (enum token_type_t type, const char *val, size_
    ret->text_len = val_len;
    memcpy (ret->text, val, val_len);
    ret->text[val_len] = 0;
+   for (size_t i=0; ret->text[i]; i++) {
+      if (ret->text[i] == '\\') {
+         memmove (&ret->text[i], &ret->text[i+1], ret->text_len - i + 1);
+         ret->text_len--;
+      }
+   }
+
    return ret;
 }
 
@@ -224,7 +231,13 @@ static int token_read (struct token_t **dst,
       // Maybe at some point in the future we use a static LUT for this.
       if (isalpha (c) || ispunct (c)) {
          size_t start = (*index) - 1;
+         if (c == '\\')
+            c = getnextchar (input, input_len, index);
          while ((c = getnextchar (input, input_len, index)) != EOF) {
+            if (c == '\\') {
+               c = getnextchar (input, input_len, index);
+               continue;
+            }
             if (isspace (c) || c == '(' || c == ')') {
                (*index)--;
                break;
@@ -354,8 +367,8 @@ static bool node_add_attr (struct node_t *node, const char *attr)
 
 static void print_indent(size_t ilevel, FILE *outf)
 {
-   for (size_t i=0; i<(ilevel * 3); i++) {
-      fputc (' ', outf);
+   for (size_t i=0; i<ilevel; i++) {
+      fputc ('\t', outf);
    }
 }
 
@@ -548,7 +561,13 @@ static int process_file (const char *ifname)
       goto cleanup;
    }
 
-   node_emit_html(root, 0, outf);
+   if (root->nchildren != 1) {
+      fprintf (stderr, "%s: Error in processing, %zu root elements\n",
+               ifname, root->nchildren);
+      goto cleanup;
+   }
+
+   node_emit_html(root->children[0], 0, outf);
 
    ret = EXIT_SUCCESS;
 cleanup:
