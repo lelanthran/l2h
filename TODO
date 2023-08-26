@@ -1,4 +1,11 @@
 =================================================================
-Implement `process_dir` to recursively switch working directories
-and process each file in those directories that end in ".html.lisp"
+Implement tokeniser to escape characters. Needed for representing
+actual '(' and ')' in the source.
+
+Probably not a bad idea to also test that stuff in quoted strings
+doesn't get mangled (don't think so, though; the code for that
+is so simple it's embarrassing - once a quote being read, everything
+is captured verbatim by the tokeniser).
+=================================================================
+
 
