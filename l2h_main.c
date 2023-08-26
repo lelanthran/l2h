@@ -16,10 +16,22 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <errno.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <dirent.h>
+
+
+/* ********************************************************
+ * The globals.
+ */
+
+#define VERSION      ("0.0.1")
+#define FPRINTF(x,...)  if (flag_verbose) fprintf (stderr, __VA_ARGS__)
+
+static bool flag_verbose = false;
 
 static int getnextchar (const char *input, size_t input_len, size_t *index)
 {
@@ -495,7 +507,7 @@ static int process_file (const char *ifname)
       goto cleanup;
    }
    if (rc == 0) {
-      fprintf (stderr, "%s: complete\n", ifname);
+      FPRINTF (stderr, "%s: complete\n", ifname);
    }
    if (rc > 0) {
       fprintf (stderr, "%s: Unparsed input still in buffer\n", ifname);
@@ -527,17 +539,110 @@ cleanup:
 
 static int process_dir (const char *ifname, bool recurse)
 {
-   (void)ifname;
-   (void)recurse;
-   return EXIT_FAILURE;
+   int errcount = 1;
+   char *pwd = getcwd (NULL, 0); // gnu extension, allocates the returned value
+   struct dirent *de = NULL;
+   DIR *dirp = NULL;
+
+   if ((chdir (ifname)) != 0) {
+      fprintf (stderr, "Failed to switch to directory [%s]: %m\n", ifname);
+      goto cleanup;
+   }
+
+   FPRINTF (stderr, "Changed to directory [%s]\n", ifname);
+
+   if (!pwd) {
+      fprintf (stderr, "Failed to switch to directory [%s]: %m\n", ifname);
+      goto cleanup;
+   }
+
+   if (!(dirp = opendir ("."))) {
+      fprintf (stderr, "Failed to directory [%s] for reading: %m\n", ifname);
+      goto cleanup;
+   }
+
+   errcount = 0;
+   errno = 0;
+
+   while ((de = readdir (dirp)) != NULL) {
+      if (errno) {
+         fprintf (stderr, "Failed to read directory [%s]: %m\n", ifname);
+         errcount++;
+         goto cleanup;
+      }
+      if (de->d_name[0] == '.') {
+         continue;
+      }
+      if (recurse && de->d_type == DT_DIR) {
+         errcount += process_dir (de->d_name, recurse) == 0 ? 0 : 1;
+         continue;
+      }
+      // TODO: Still handling file-checking wrong. This will have some
+      // false positives. Check the other TODO about why this is broken
+      if ((strstr (de->d_name, ".html.lisp")) != NULL) {
+         errcount += process_file(de->d_name) == 0 ? 0 : 1;
+      }
+      errno = 0;
+   }
+
+
+cleanup:
+   if ((chdir (pwd)) != 0) {
+      fprintf (stderr, "Failed to return to previous directory: %m\n");
+   }
+
+   FPRINTF (stderr, "Left directory [%s]\n", ifname);
+
+   free (pwd);
+   if (dirp) {
+      closedir (dirp);
+   }
+   return errcount;
 }
 
+static void print_help_msg (void)
+{
+   static const char *msg[] = {
+"Lisp2Html: Convert lisp-ish s-expressions to HTML tag trees",
+"Usage:",
+"  l2g [options] PATH1 PATH2 ... PATHn",
+"",
+"  Each path must be a filename of the form '*.html.lisp' or a directory",
+"name. When PATH is a filename, the file is converted and the results",
+"are written to '*.html' (i.e. the '.lisp' is removed from the output",
+"filename). When PATH is a directory it is scanned for all files matching",
+"the pattern '*.html.lisp' and each file is converted, with the results",
+"stored in '*.html'",
+"",
+"  Unless the option '-r' or '--recurse' is specified, directories are",
+"not recursively processed. If the option '-s' or '--stdio' is specified",
+"then input is read from stdin and written to stdout. All pathnames are",
+"ignored when '-s' or '--stdio' is specified.",
+"",
+"  The following options are recognised. Unrecognised options produce an",
+"error message without any processing of files or data.",
+"",
+"-r | --recurse     Recursively process any directories specified",
+"-s | --stdio       Read input from stdin and write the output to stdout",
+"-v | --verbose     Produce extra informational messages",
+"-V | --version     Print the program version, then continue as normal",
+"-h | --help        Display this message and exit",
+"",
+"",
+   };
+
+   for (size_t i=0; i<sizeof msg / sizeof msg[0]; i++) {
+      printf ("%s\n", msg[i]);
+   }
+}
 
 int main (int argc, char **argv)
 {
    int ret = EXIT_FAILURE;
-   bool flag_recurse = false;
-   bool flag_stdio = false;
+   bool flag_recurse = false,
+         flag_version = false,
+         flag_help = false,
+         flag_stdio = false;
    char **paths = NULL;
    size_t npaths = 0;
    size_t errcount = 0;
@@ -550,11 +655,23 @@ int main (int argc, char **argv)
             flag_recurse = true;
             continue;
          }
+         if ((strcmp (argv[i], "-v"))==0 || (strcmp (argv[i], "--verbose"))==0) {
+            flag_verbose = true;
+            continue;
+         }
+         if ((strcmp (argv[i], "-V"))==0 || (strcmp (argv[i], "--version"))==0) {
+            flag_version = true;
+            continue;
+         }
+         if ((strcmp (argv[i], "-h"))==0 || (strcmp (argv[i], "--help"))==0) {
+            flag_help = true;
+            continue;
+         }
          if ((strcmp (argv[i], "-s"))==0 || (strcmp (argv[i], "--stdio"))==0) {
             flag_stdio = true;
             continue;
          }
-         fprintf (stderr, "Unrecognised flag [%s]\n", argv[i]);
+         fprintf (stderr, "Unrecognised flag [%s]. Try --help\n", argv[i]);
          errcount++;
       } else {
          char **tmp = realloc (paths, (npaths + 2) * (sizeof (*tmp)));
@@ -562,14 +679,28 @@ int main (int argc, char **argv)
             fprintf (stderr, "OOM error allocating paths (%zu encountered), aborting\n", npaths);
             goto cleanup;
          }
-         fprintf (stderr, "Found [%s]\n", argv[i]);
          tmp[npaths++] = argv[i];
          tmp[npaths] = NULL;
          paths = tmp;
       }
    }
 
-   if (!paths && !flag_stdio) {
+   if (flag_version) {
+      printf ("l2h v%s (Copyright Lelanthran Manickum 2023)\n\n", VERSION);
+      printf ("  This program is licensed under the BSD 2-Clause license.\n");
+      printf ("  If you would like the source code or the license to this\n");
+      printf ("  program, please visit\n\n");
+      printf ("            https://github.com/lelanthran/l2h\n\n");
+   }
+
+   if (flag_help) {
+      print_help_msg ();
+      free (paths);
+      return 0;
+   }
+
+
+   if (!paths && !flag_stdio && !flag_recurse) {
       fprintf (stderr, "No pathnames specified, aborting\n");
       errcount++;
    }
@@ -589,13 +720,13 @@ int main (int argc, char **argv)
          continue;
       }
       if (S_ISDIR (sb.st_mode)) {
-         if ((process_dir(paths[i], flag_recurse)) != EXIT_SUCCESS) {
-            fprintf (stderr, "Error processing [%s]: %m\n", paths[i]);
+         if ((process_dir (paths[i], flag_recurse)) != EXIT_SUCCESS) {
+            fprintf (stderr, "Error processing directory [%s]: %m\n", paths[i]);
             errcount++;
             continue;
          }
       } else {
-         if ((process_file(paths[i])) != EXIT_SUCCESS) {
+         if ((process_file (paths[i])) != EXIT_SUCCESS) {
             fprintf (stderr, "Error processing [%s]\n", paths[i]);
             errcount++;
             continue;
@@ -611,7 +742,7 @@ int main (int argc, char **argv)
 
 cleanup:
    free (paths);
-   fprintf (stderr, "Exit-code: %i\n", ret);
+   FPRINTF (stderr, "Exit-code: %i\n", ret);
    return ret;
 }
 
