@@ -47,6 +47,7 @@ enum token_type_t {
    token_ATTR,
 };
 
+#if 0
 static const char *token_type_text (enum token_type_t type) {
    static const struct {
       enum token_type_t type;
@@ -67,6 +68,7 @@ static const char *token_type_text (enum token_type_t type) {
    }
    return arr[0].text;
 }
+#endif
 
 
 struct token_t {
@@ -105,6 +107,7 @@ static struct token_t *token_new (enum token_type_t type, const char *val, size_
    return ret;
 }
 
+#if 0
 // Only for diagnostics during development
 static void token_dump (struct token_t *token, FILE *outf)
 {
@@ -118,6 +121,7 @@ static void token_dump (struct token_t *token, FILE *outf)
 
    fprintf (outf, "token: [%19s...%s]\n", token_type_text (token->type), token->text);
 }
+#endif
 
 // Returns -1 for error, 0 for EOF and 1 for token
 static int token_read (struct token_t **dst,
@@ -204,6 +208,7 @@ enum node_type_t {
    node_LIST,
 };
 
+#if 0
 static const char *node_type_text (enum node_type_t type)
 {
    static const struct {
@@ -224,6 +229,7 @@ static const char *node_type_text (enum node_type_t type)
 
    return arr[0].text;
 }
+#endif
 
 struct node_t {
    enum node_type_t type;
@@ -308,6 +314,7 @@ static void print_indent(size_t ilevel, FILE *outf)
 }
 
 
+#if 0
 static void node_dump (struct node_t *node, size_t indent)
 {
    if (!node)
@@ -322,6 +329,7 @@ static void node_dump (struct node_t *node, size_t indent)
       node_dump (node->children[i], indent + 1);
    }
 }
+#endif
 
 static size_t node_get_index (const struct node_t *node)
 {
@@ -408,9 +416,6 @@ static int parse (struct node_t **dst,
  * Main Functions
  */
 
-#define EXT       (".lisp")
-#define EXT_LEN   (strlen (EXT))
-
 static int process_file (const char *ifname)
 {
    static char line[1024 * 1024];
@@ -424,6 +429,8 @@ static int process_file (const char *ifname)
    char *ofname = NULL;
    char *tmp = NULL;
 
+   static const char *fext = ".html.lisp";
+
    if (!ifname) {
       fprintf (stderr, "%s: NULL passed for input filename\n", ifname);
       goto cleanup;
@@ -434,21 +441,22 @@ static int process_file (const char *ifname)
       goto cleanup;
    }
 
-
+   // TODO: Fix this.
+   // If the input filename is "-", then set the output filename to "-"
+   // otherwise, set the output filename to the input filename, stripping
+   // off everything past ".html.lisp". This is non-ideal for files that
+   // have two instances of that string in their name, hence the TODO
    if ((strcmp (ifname, "-")) == 0) {
+      free (ofname);
       ofname = strdup ("-");
    } else {
-      tmp = strstr (ofname, EXT);
+      tmp = strstr (ofname, fext);
       if (!tmp) {
-         fprintf (stderr, "%s: Input filename missing [%s]\n", ifname, EXT);
+         fprintf (stderr, "%s: Input filename missing [%s]\n", ifname, fext);
          goto cleanup;
       }
+      tmp = strstr (tmp, ".lisp"); // cannot fail, so omit the check
        *tmp = 0;
-   }
-
-   if ((memcmp (&ifname[strlen(ifname) - strlen(EXT)], EXT, EXT_LEN)) != 0) {
-      fprintf (stderr, "%s: Input filename must end in [%s]\n", ifname, EXT);
-      goto cleanup;
    }
 
    if ((memcmp (ifname, "-", 2)) == 0) {
@@ -529,6 +537,7 @@ int main (int argc, char **argv)
 {
    int ret = EXIT_FAILURE;
    bool flag_recurse = false;
+   bool flag_stdio = false;
    char **paths = NULL;
    size_t npaths = 0;
    size_t errcount = 0;
@@ -537,8 +546,12 @@ int main (int argc, char **argv)
 
    for (size_t i=1; argv[i]; i++) {
       if (argv[i][0] == '-') {
-         if ((memcmp (argv[i], "-r", 3))==0) {
+         if ((strcmp (argv[i], "-r"))==0 || (strcmp (argv[i], "--recurse"))==0) {
             flag_recurse = true;
+            continue;
+         }
+         if ((strcmp (argv[i], "-s"))==0 || (strcmp (argv[i], "--stdio"))==0) {
+            flag_stdio = true;
             continue;
          }
          fprintf (stderr, "Unrecognised flag [%s]\n", argv[i]);
@@ -556,7 +569,7 @@ int main (int argc, char **argv)
       }
    }
 
-   if (!paths) {
+   if (!paths && !flag_stdio) {
       fprintf (stderr, "No pathnames specified, aborting\n");
       errcount++;
    }
@@ -568,7 +581,7 @@ int main (int argc, char **argv)
 
    errcount = 0;
 
-   for (size_t i=0; paths[i]; i++) {
+   for (size_t i=0; !flag_stdio && paths[i]; i++) {
       struct stat sb;
       if ((stat (paths[i], &sb)) != 0) {
          fprintf (stderr, "Failed to stat [%s]: %m\n", paths[i]);
@@ -588,6 +601,10 @@ int main (int argc, char **argv)
             continue;
          }
       }
+   }
+
+   if (flag_stdio) {
+      errcount += process_file("-") == EXIT_SUCCESS ? 0 : 1;
    }
 
    ret = errcount;
