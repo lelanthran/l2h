@@ -216,6 +216,7 @@ static int token_read (struct token_t **dst,
          return 1;
       }
 
+      // Handle element attributes.
       if (c == ':') {
          size_t start = *index;
          while ((c = getnextchar (input, input_len, index)) != EOF) {
@@ -841,10 +842,18 @@ static int parser (struct node_t *parent,
                token_del (tok);
                return -1;
             }
-            // Skip all whitespace following a tag symbol
+            // Hack to swallow whitespace after any symbol, but preserve
+            // newlines as-is. This lets us emit things like "A(tag B)C"
+            // (note, no spaces on either side of the tags) while ensuring
+            // that "(tag\ncontent)" results in "<tag>\ncontent</tag".
+            //
+            // This is because when a user indicates a newline after a tag,
+            // we should respect that in the output, but any spaces after
+            // a tagname needs to be removed as the user doesn't want the
+            // input "A(tag B)C" to be turned into "A <tag> B </tag> C".
             int c;
             while ((c = getnextchar (input, input_len, index))!=EOF) {
-               if (!(isspace (c))) {
+               if ((c == '\n') || !(isspace (c))) {
                   (*index)--;
                   break;
                }
