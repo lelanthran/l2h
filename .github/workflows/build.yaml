@@ -1,0 +1,67 @@
+name: Build and Release on Tag Push
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Make
+        run: sudo apt-get install build-essential
+
+      - name: Build Project
+        run: make
+
+      - name: Upload Artifact
+        id: upload-artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: l2h-binary
+          path: l2h  # Assuming 'l2h' is the name of the output binary
+
+  release:
+    needs: build
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Download Release Asset
+        id: download-release-asset
+        uses: actions/download-artifact@v2
+        with:
+          name: l2h-binary
+          path: .
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: l2h
+          asset_name: l2h-binary
+          asset_content_type: application/octet-stream
+
