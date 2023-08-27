@@ -1,0 +1,28 @@
+name: Build on Tag Push
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Make
+        run: sudo apt-get install build-essential
+
+      - name: Build Project
+        run: make
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: l2h-binary
+          path: l2h  # Assuming 'l2h' is the name of the output binary
+
