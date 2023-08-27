@@ -12,7 +12,7 @@
 incididunt ut labore et dolore magna aliqua. Sit amet facilisis magna etiam tempor
 orci. Id cursus metus aliquam eleifend mi in. Elit scelerisque mauris pellentesque
 pulvinar pellentesque habitant morbi tristique senectus. Sed adipiscing diam donec
-adipiscing (b tristique risus). Interdum velit euismod in pellentesque massa placerat
+adipiscing(b tristique risus). Interdum velit euismod in pellentesque massa placerat
 duis ultricies lacus. Turpis egestas sed tempus urna. Est velit egestas dui id
 ornare arcu odio. Egestas purus viverra accumsan in nisl nisi. Sed adipiscing diam
 donec adipiscing tristique risus. (b Habitant morbi tristique senectus et netus).

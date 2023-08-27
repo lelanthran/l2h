@@ -1,7 +1,21 @@
 =================================================================
-Need to keep track of spaces. Currently automatically adding
-whitespace of a tag is incorrect. Things like "<b>this</b>!"
-comes out wrong, with a space between the "this" and the "!".
+Must find a suitable way to remove the space that is inserted
+after a tag.
+
+For example, to represent "Hel<b>l</b>o", there is no way, as the
+tag automatically includes the space when represented as sexps:
+"Hel(b l)0".
+
+Two options:
+1. Include a special escape sequence to indicate nospace after
+   the tag. For example, using \b as the indicator:
+      He(b\bl)lo
+2. Don't tokenise spaces immediately after a tag - i.e. when the
+   tag is read, swallow the next character if it is whitespace.
+3. When parsing, drop any whitespace or newline tokens following
+   the list token (tag tokens are called list tokens).
+4. When emitting, skip the next node if it is a whitespace or
+   newline node.
 =================================================================
 
 
