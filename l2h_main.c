@@ -841,6 +841,15 @@ static int parser (struct node_t *parent,
                token_del (tok);
                return -1;
             }
+            // Skip all whitespace following a tag symbol
+            int c;
+            while ((c = getnextchar (input, input_len, index))!=EOF) {
+               if (!(isspace (c))) {
+                  (*index)--;
+                  break;
+               }
+            }
+
             rc = parser (root, input, input_len, index);
             break;
 

@@ -8,7 +8,7 @@
          The quick (i brown fox) jumped (b over the) red #fff000 lazy dog)
       (div :class="lorem"
 
-(p Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+(p Lorem ipsum dolor sit amet, consectetur adi(b pisc)ing elit, sed do eiusmod tempor
 incididunt ut labore et dolore magna aliqua. Sit amet facilisis magna etiam tempor
 orci. Id cursus metus aliquam eleifend mi in. Elit scelerisque mauris pellentesque
 pulvinar pellentesque habitant morbi tristique senectus. Sed adipiscing diam donec

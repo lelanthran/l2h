@@ -1,21 +1,79 @@
 =================================================================
-Must find a suitable way to remove the space that is inserted
-after a tag.
+Include doctype options for the command-line. For now it is
+probably sufficient to simply use a boolean flag that sets the
+string "<!DOCTYPE HTML>" and insist that users be aware that only
+HTML5 is supported.
 
-For example, to represent "Hel<b>l</b>o", there is no way, as the
-tag automatically includes the space when represented as sexps:
-"Hel(b l)0".
+In the future, maybe allow user to set the doctype string
+themselves, on the command-line. Maybe also allow the user, via
+c/line flags, to set every other once-off unbalanced tags.
+=================================================================
 
-Two options:
-1. Include a special escape sequence to indicate nospace after
-   the tag. For example, using \b as the indicator:
-      He(b\bl)lo
-2. Don't tokenise spaces immediately after a tag - i.e. when the
-   tag is read, swallow the next character if it is whitespace.
-3. When parsing, drop any whitespace or newline tokens following
-   the list token (tag tokens are called list tokens).
-4. When emitting, skip the next node if it is a whitespace or
-   newline node.
+
+=================================================================
+Support comments.
+
+1. Not too sure about the best way - hijacking a comment tag
+   stomps all over the namespace of HTML. For example, easy to
+   allow comments like this:
+     (comment this is a comment)
+       => "<!-- this is a comment -->
+   but then if the page has <comment> elements in it (not
+   impossible in the future, or if a dev produced a poorly named
+   custom element) then that element will never be in the output.
+
+2. Use lisp-ish comments - everything from ';' to end of line is
+   a comment. The problem with this is that the user then needs
+   to escape their semicolons, like this "retry\; abort\; fail?".
+
+#1 above can be mitigated by allowing the user to set, via the
+c/line, their own symbol for comments, so if there is a clash the
+user can pick something other than "comment" as the comment
+element/tag.
+
+(If HTML was regular we wouldn't have a problem - comments would
+be indicated like this:
+   "<!--> this is a comment </!-->
+or like this:
+   "<!-- this is a comment>
+
+But nooooo ...
+
+Some Very Smart Persons back in the 60's decided that the SGML
+language shouldn't be balanced. Can't really blame them, all of
+the research, knowledge and wisdom around regular languages and
+CFGs, and PFAs, etc was still in its infancy.
+
+The 60s people definitely did not have the benefit of seeing the
+implementation in widespread use by billions of people, using
+100s of thousands of applications, all relying on their
+descdendant of SGML.
+
+OTOH, the Vert Smart Persons in the early 90s who took SGML and
+used it basically unmodified for HTML *should have know better*,
+as by that point SGML was already being implemented for decades
+and those implementors would have come across the same problem of
+not having a language that exclusively had balanced tags.
+
+Those early 90s people are not completely to blame either - they
+simply did not know what their little document publishing and
+exchange system would become. After all, documents were written
+by hand, so who cared if HTML contained a multitude of exceptions
+to the general rule of "<tag>...</tag>", because the human
+writing it certainly knew what the exceptions were.
+
+And then we come to late-90s, where some more self-appointed Very
+Smart Persons, who had the benefit of working with a mature and
+well-understood language, decided, when steering HTML, to *keep
+the unbalanced nature of HTML after version 2.0!*
+
+Yeah, yeah, backwards compatibility, and all that, but at that
+early time in early 2000s, they could have jettisoned the
+baggage, moved to a balanced-tags-only grammar, and we'd all be
+better off.
+
+So what we do know is code a tree, that sometimes has elements
+that is *not* part of the tree, but exists within it.
 =================================================================
 
 
