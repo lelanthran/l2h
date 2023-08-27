@@ -91,6 +91,8 @@ enum token_type_t {
    token_CLOSE_PAREN,
    token_SYMBOL,
    token_ATTR,
+   token_WHITESPACE,
+   token_NEWLINE,
 };
 
 #if 0
@@ -150,6 +152,13 @@ static struct token_t *token_new (enum token_type_t type, const char *val, size_
    ret->text_len = val_len;
    memcpy (ret->text, val, val_len);
    ret->text[val_len] = 0;
+   for (size_t i=0; ret->text[i]; i++) {
+      if (ret->text[i] == '\\') {
+         memmove (&ret->text[i], &ret->text[i+1], ret->text_len - i + 1);
+         ret->text_len--;
+      }
+   }
+
    return ret;
 }
 
@@ -173,12 +182,27 @@ static void token_dump (struct token_t *token, FILE *outf)
 static int token_read (struct token_t **dst,
                        const char *input, size_t input_len, size_t *index)
 {
+   static char errbuf[1024];
    int c;
    while ((c = getnextchar (input, input_len, index)) != EOF) {
 
-      // Ignore spaces
-      if (isspace (c)) {
-         continue;
+      // Return each newline as a token
+      if (c == '\n') {
+         *dst = token_new (token_NEWLINE, &input[(*index) - 1], 1);
+         return 1;
+      }
+
+      // Compress spaces that are not newlines
+      if ((c != '\n') && isspace (c)) {
+         size_t start = (*index);
+         while ((c = getnextchar (input, input_len, index)) != EOF &&
+                (c != '\n') &&
+                isspace (c)) {
+            ;
+         }
+         (*index)--;
+         *dst = token_new (token_WHITESPACE, &input[start], (*index) - start);
+         return 1;
       }
 
       // Handle the open/close parenthesis cases
@@ -192,6 +216,7 @@ static int token_read (struct token_t **dst,
          return 1;
       }
 
+      // Handle element attributes.
       if (c == ':') {
          size_t start = *index;
          while ((c = getnextchar (input, input_len, index)) != EOF) {
@@ -212,6 +237,8 @@ static int token_read (struct token_t **dst,
                }
                if (c != quote) {
                   *index = start;
+                  snprintf (errbuf, sizeof errbuf - 1, "%s", &input[*index]);
+                  fprintf (stderr, "Unmatched quote [%c] at\n%s\n", c, errbuf);
                   return -1;
                }
             }
@@ -224,7 +251,13 @@ static int token_read (struct token_t **dst,
       // Maybe at some point in the future we use a static LUT for this.
       if (isalpha (c) || ispunct (c)) {
          size_t start = (*index) - 1;
+         if (c == '\\')
+            c = getnextchar (input, input_len, index);
          while ((c = getnextchar (input, input_len, index)) != EOF) {
+            if (c == '\\') {
+               c = getnextchar (input, input_len, index);
+               continue;
+            }
             if (isspace (c) || c == '(' || c == ')') {
                (*index)--;
                break;
@@ -235,6 +268,9 @@ static int token_read (struct token_t **dst,
       }
 
       // Nothing matches?
+      snprintf (errbuf, sizeof errbuf - 1, "%s", &input[*index]);
+      fprintf (stderr, "No token matches succeeded at:\n");
+      fprintf (stderr, "--------\n%s\n---------\n", errbuf);
       return -1;
    }
 
@@ -252,6 +288,8 @@ enum node_type_t {
    node_UNKNOWN = 0,
    node_SYMBOL,
    node_LIST,
+   node_WHITESPACE,
+   node_NEWLINE,
 };
 
 #if 0
@@ -261,9 +299,11 @@ static const char *node_type_text (enum node_type_t type)
       enum node_type_t type;
       const char *text;
    } arr[] = {
-      { node_UNKNOWN,   "node_UNKNOWN" },
-      { node_SYMBOL,    "node_SYMBOL"  },
-      { node_LIST,      "node_LIST"    },
+      { node_UNKNOWN,      "node_UNKNOWN" },
+      { node_SYMBOL,       "node_SYMBOL"  },
+      { node_LIST,         "node_LIST"    },
+      { node_WHITESPACE,   "node_WHITESPACE"    },
+      { node_NEWLINE,      "node_NEWLINE"    },
    };
    static const size_t arr_len = sizeof arr / sizeof arr[0];
 
@@ -354,8 +394,8 @@ static bool node_add_attr (struct node_t *node, const char *attr)
 
 static void print_indent(size_t ilevel, FILE *outf)
 {
-   for (size_t i=0; i<(ilevel * 3); i++) {
-      fputc (' ', outf);
+   for (size_t i=0; i<ilevel; i++) {
+      fputc ('\t', outf);
    }
 }
 
@@ -418,29 +458,27 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
       return;
 
    switch (node->type) {
-      case node_SYMBOL:
-         if (node_prev_type (node) != node_SYMBOL) {
-            fputc ('\n', outf);
-            print_indent (indent, outf);
-         }
-         fprintf (outf, "%s ", node->value);
-         if (node_is_final (node)) {
-            fprintf (outf, "\n");
-         }
+      case node_NEWLINE:
+         fprintf (outf, "\n");
+         print_indent (indent, outf);
+         break;
 
+      case node_WHITESPACE:
+         fprintf (outf, " ");
+         break;
+
+      case node_SYMBOL:
+         fprintf (outf, "%s", node->value);
          break;
 
       case node_LIST:
-         fputc ('\n', outf);
-         print_indent (indent, outf);
          const char *attrs = node->attrs ? node->attrs : "";
          const char *delim = node->attrs ? " " : "";
          fprintf (outf, "<%s%s%s>", node->value, delim, attrs);
          for (size_t i=0; i<node->nchildren; i++) {
             node_emit_html (node->children[i], indent + 1, outf);
          }
-         print_indent (indent, outf);
-         fprintf (outf, "</%s>\n", node->value);
+         fprintf (outf, "</%s>", node->value);
          break;
 
       case node_UNKNOWN:
@@ -548,7 +586,9 @@ static int process_file (const char *ifname)
       goto cleanup;
    }
 
-   node_emit_html(root, 0, outf);
+   for (size_t i=0; i<root->nchildren; i++) {
+      node_emit_html(root->children[i], 0, outf);
+   }
 
    ret = EXIT_SUCCESS;
 cleanup:
@@ -802,6 +842,23 @@ static int parser (struct node_t *parent,
                token_del (tok);
                return -1;
             }
+            // Hack to swallow whitespace after any symbol, but preserve
+            // newlines as-is. This lets us emit things like "A(tag B)C"
+            // (note, no spaces on either side of the tags) while ensuring
+            // that "(tag\ncontent)" results in "<tag>\ncontent</tag".
+            //
+            // This is because when a user indicates a newline after a tag,
+            // we should respect that in the output, but any spaces after
+            // a tagname needs to be removed as the user doesn't want the
+            // input "A(tag B)C" to be turned into "A <tag> B </tag> C".
+            int c;
+            while ((c = getnextchar (input, input_len, index))!=EOF) {
+               if ((c == '\n') || !(isspace (c))) {
+                  (*index)--;
+                  break;
+               }
+            }
+
             rc = parser (root, input, input_len, index);
             break;
 
@@ -811,7 +868,7 @@ static int parser (struct node_t *parent,
 
          case token_SYMBOL:
             if (!(node_new (parent, node_SYMBOL, tok->text))) {
-               fprintf (stderr, "Failed to create node\n");
+               fprintf (stderr, "Failed to create symbol node\n");
                token_del (tok);
                return -1;
             }
@@ -820,6 +877,22 @@ static int parser (struct node_t *parent,
          case token_ATTR:
             if (!(node_add_attr(parent, tok->text))) {
                fprintf (stderr, "Failed to add attribute\n");
+               token_del (tok);
+               return -1;
+            }
+            break;
+
+         case token_WHITESPACE:
+            if (!(node_new (parent, node_WHITESPACE, tok->text))) {
+               fprintf (stderr, "Failed to create whitespace node\n");
+               token_del (tok);
+               return -1;
+            }
+            break;
+
+         case token_NEWLINE:
+            if (!(node_new (parent, node_NEWLINE, tok->text))) {
+               fprintf (stderr, "Failed to create newline node\n");
                token_del (tok);
                return -1;
             }
@@ -858,6 +931,9 @@ static int parse (struct node_t **dst,
    }
    if (rc == 1) {
       fprintf (stderr, "Unexpected end of parsing\n");
+      fprintf (stderr, "Remained of buffer follows:\n");
+      fprintf (stderr, "======================\n%s======================\n",
+               &input[*index]);
    }
 
 
