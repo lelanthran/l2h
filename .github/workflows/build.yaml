@@ -38,6 +38,10 @@ jobs:
           echo "COMPILER_VERSION=`gcc -v 2>&1 |tail -n 1 |  cut -f 3 -d \  `" >> $GITHUB_ENV
           cat $GITHUB_ENV
           . $GITHUB_ENV
+          echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_OUTPUT
+          echo "COMPILER_NAME=`gcc -v 2>&1 | tail -n 1 | cut -f 1 -d \  `" >> $GITHUB_OUTPUT
+          echo "COMPILER_VERSION=`gcc -v 2>&1 |tail -n 1 |  cut -f 3 -d \  `" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
 
       - name: Upload Artifact
         id: upload-artifact
