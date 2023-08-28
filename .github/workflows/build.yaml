@@ -10,6 +10,9 @@ jobs:
     name: Build Project
     runs-on: ubuntu-20.04
 
+    outputs:
+      TARGET: ${{ steps.set_variable.outputs.TARGET }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
@@ -51,7 +54,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release  $TARGET-${{ github.ref }}
+          release_name: Release $TARGET-${{ github.ref }}
           draft: false
           prerelease: false
 
