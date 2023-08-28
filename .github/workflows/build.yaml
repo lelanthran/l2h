@@ -80,7 +80,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: l2h
-          asset_name: l2h-binary
+          asset_name: l2h
           asset_content_type: application/octet-stream
 
       - name: Upload buildinfo
@@ -91,7 +91,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: buildinfo.txt
-          asset_name: Buildinfo
+          asset_name: buildinfo.txt
           asset_content_type: text/plain
 
       - name: Upload CHANGELOG
@@ -102,6 +102,6 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: CHANGELOG
-          asset_name: Changelog
+          asset_name: CHANGELOG
           asset_content_type: text/plain
 
