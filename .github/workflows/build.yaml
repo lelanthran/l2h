@@ -47,6 +47,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
+      - name: Set Release Name
+        id: set_release_name
+        run: echo "RELEASE_NAME=Release $TARGET-${{ github.ref }}" >> $GITHUB_ENV
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -54,7 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release $TARGET-${{ github.ref }}
+          release_name: ${{ env.RELEASE_NAME }}
           draft: false
           prerelease: false
 
