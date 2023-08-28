@@ -5,8 +5,6 @@
 
 /* ****************************************************************************
  *
- *                      Copyright (c) 2023, Lelanthran Manickum
- *
  * BSD 2-Clause License
  *
  * Copyright (c) 2023, Lelanthran Manickum
@@ -62,7 +60,7 @@
  * The globals.
  */
 
-#define VERSION      ("0.0.1")
+#define VERSION      ("0.0.3")
 #define FPRINTF(x,...)  if (flag_verbose) fprintf (stderr, __VA_ARGS__)
 
 static bool flag_verbose = false;
@@ -457,6 +455,8 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
    if (!node)
       return;
 
+   const char *attrs = NULL;
+   const char *delim = NULL;
    switch (node->type) {
       case node_NEWLINE:
          fprintf (outf, "\n");
@@ -472,8 +472,8 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
          break;
 
       case node_LIST:
-         const char *attrs = node->attrs ? node->attrs : "";
-         const char *delim = node->attrs ? " " : "";
+         attrs = node->attrs ? node->attrs : "";
+         delim = node->attrs ? " " : "";
          fprintf (outf, "<%s%s%s>", node->value, delim, attrs);
          for (size_t i=0; i<node->nchildren; i++) {
             node_emit_html (node->children[i], indent + 1, outf);
@@ -845,7 +845,7 @@ static int parser (struct node_t *parent,
             // Hack to swallow whitespace after any symbol, but preserve
             // newlines as-is. This lets us emit things like "A(tag B)C"
             // (note, no spaces on either side of the tags) while ensuring
-            // that "(tag\ncontent)" results in "<tag>\ncontent</tag".
+            // that "(tag\ncontent)" results in "<tag>\ncontent</tag>".
             //
             // This is because when a user indicates a newline after a tag,
             // we should respect that in the output, but any spaces after
