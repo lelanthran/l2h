@@ -54,7 +54,7 @@ jobs:
         id: download-release-assets
         uses: actions/download-artifact@v2
         with:
-          name: artifacts
+          name: Artifacts
           path: .
 
       - name: Set Buildinfo Vars
