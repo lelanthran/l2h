@@ -5,6 +5,11 @@ on:
     tags:
       - '*'
 
+env:
+  TARGET: UNSET
+  COMPILER_NAME: UNSET
+  COMPILER_VERSION: UNSET
+
 jobs:
   build:
     name: Build Project
@@ -29,8 +34,8 @@ jobs:
         id: set_variable
         run: |
           echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_ENV
-          echo "COMPILER_NAME=`gcc -v | tail -n 1 | cut -f 1 -d \  `" >> $GITHUB_ENV
-          echo "COMPILER_VERSION=`gcc -v |tail -n 1 |  cut -f 3 -d \  `" >> $GITHUB_ENV
+          echo "COMPILER_NAME=`gcc -v 2>&1 | tail -n 1 | cut -f 1 -d \  `" >> $GITHUB_ENV
+          echo "COMPILER_VERSION=`gcc -v 2>&1 |tail -n 1 |  cut -f 3 -d \  `" >> $GITHUB_ENV
           cat $GITHUB_ENV
           . $GITHUB_ENV
 
