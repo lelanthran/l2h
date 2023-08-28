@@ -8,6 +8,14 @@ MAINPROG=l2h
 OBS=\
 	 l2h_main.o
 
+.PHONY: buildinfo
+
+all: $(MAINPROG) buildinfo.txt
+
+buildinfo.txt:
+	@echo TARGET=`gcc -dumpmachine` > $@
+	@echo "COMPILER_NAME=`gcc -v 2>&1 | tail -n 1 | cut -f 1 -d \  `" >> $@
+	@echo "COMPILER_VERSION=`gcc -v 2>&1 |tail -n 1 |  cut -f 3 -d \  `" >> $@
 
 $(MAINPROG): $(OBS)
 	$(LD) $(OBS) -o $@
@@ -16,5 +24,5 @@ $(MAINPROG): $(OBS)
 	$(CC) $(CFLAGS) -o $@ $<
 
 clean:
-	rm -rfv $(OBS) $(MAINPROG) `find . | grep "\.html\$$"`
+	rm -rfv buildinfo $(OBS) $(MAINPROG) `find . | grep "\.html\$$"`
 

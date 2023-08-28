@@ -30,25 +30,19 @@ jobs:
       - name: Build Project
         run: make
 
-      - name: Set buildinfo
-        id: set_variable
-        run: |
-          echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_ENV
-          echo "COMPILER_NAME=`gcc -v 2>&1 | tail -n 1 | cut -f 1 -d \  `" >> $GITHUB_ENV
-          echo "COMPILER_VERSION=`gcc -v 2>&1 |tail -n 1 |  cut -f 3 -d \  `" >> $GITHUB_ENV
-          cat $GITHUB_ENV
-          . $GITHUB_ENV
-          echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_OUTPUT
-          echo "COMPILER_NAME=`gcc -v 2>&1 | tail -n 1 | cut -f 1 -d \  `" >> $GITHUB_OUTPUT
-          echo "COMPILER_VERSION=`gcc -v 2>&1 |tail -n 1 |  cut -f 3 -d \  `" >> $GITHUB_OUTPUT
-          cat $GITHUB_OUTPUT
-
       - name: Upload Artifact
         id: upload-artifact
         uses: actions/upload-artifact@v2
         with:
           name: l2h-binary
           path: l2h
+
+      - name: Upload Buildinfo
+        id: upload-buildinfo
+        uses: actions/upload-artifact@v2
+        with:
+          name: buildinfo
+          path: buildinfo.txt
 
   release:
     needs: build
@@ -59,6 +53,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
+      - name: Download Buildinfo
+        id: download-buildinfo
+        uses: actions/download-artifact@v2
+        with:
+          name: buildinfo
+          path: .
+
+      - name: Set Buildinfo Vars
+        id: set-buildinfo-vars
+        run: cat buildinfo.txt >> $GITHUB_ENV
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -66,7 +71,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ env.TARGET }}-${{ github.ref }}
+          release_name: Release $TARGET-${{ github.ref }}
           draft: false
           prerelease: false
 
