@@ -101,7 +101,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: l2h
-          asset_name: l2h-binary
-          asset_content_type: application/octet-stream
+          asset_path: CHANGELOG
+          asset_name: Changelog
+          asset_content_type: text/plain
 
