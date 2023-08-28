@@ -1,0 +1,4 @@
+v0.0.3 - ???
+1. Adds machine target to release name (only one release for now -
+   x86_64-linux-gnu).
+

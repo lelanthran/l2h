@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build Project
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout Repository
@@ -20,17 +20,20 @@ jobs:
       - name: Build Project
         run: make
 
+      - name: Set buildinfo
+        run: echo "TARGET=`x86_64-linux-gnu`" >> $GITHUB_ENV
+
       - name: Upload Artifact
         id: upload-artifact
         uses: actions/upload-artifact@v2
         with:
           name: l2h-binary
-          path: l2h  # Assuming 'l2h' is the name of the output binary
+          path: l2h
 
   release:
     needs: build
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout Repository
@@ -43,7 +46,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          release_name: Release  ${{ env.TARGET }}-${{ github.ref }}
           draft: false
           prerelease: false
 
