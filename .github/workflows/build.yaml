@@ -12,6 +12,8 @@ jobs:
 
     outputs:
       TARGET: ${{ steps.set_variable.outputs.TARGET }}
+      COMPILER_NAME: ${{ steps.set_variable.outputs.COMPILER_NAME }}
+      COMPILER_VERSION: ${{ steps.set_variable.outputs.COMPILER_VERSION }}
 
     steps:
       - name: Checkout Repository
@@ -24,12 +26,12 @@ jobs:
         run: make
 
       - name: Set buildinfo
+        id: set_variable
         run: |
           echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_ENV
-          gcc -v
-          echo $GITHUB_ENV
+          echo "COMPILER_NAME=`gcc -v | cut -f 1 -d \  `" >> $GITHUB_ENV
+          echo "COMPILER_VERSION=`gcc -v | cut -f 3 -d \  `" >> $GITHUB_ENV
           cat $GITHUB_ENV
-
 
       - name: Upload Artifact
         id: upload-artifact
@@ -47,10 +49,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set Release Name
-        id: set_release_name
+      - name: Get TARGET from previous job
         run: |
-          echo "RELEASE_NAME=Release $TARGET-${{ github.ref }}" >> $GITHUB_ENV
+          echo "TARGET=${{ needs.build.outputs.TARGET }}" >> $GITHUB_ENV
+          echo "COMPILER_NAME=${{ needs.build.outputs.COMPILER_NAME }}" >> $GITHUB_ENV
+          echo "COMPILER_VERSION=${{ needs.build.outputs.COMPILER_VERSION }}" >> $GITHUB_ENV
           cat $GITHUB_ENV
 
       - name: Create Release
@@ -60,7 +63,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: ${{ env.RELEASE_NAME }}
+          release_name: Release $TARGET-${{ github.ref }}
           draft: false
           prerelease: false
 
