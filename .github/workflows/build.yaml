@@ -29,9 +29,10 @@ jobs:
         id: set_variable
         run: |
           echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_ENV
-          echo "COMPILER_NAME=`gcc -v | cut -f 1 -d \  `" >> $GITHUB_ENV
-          echo "COMPILER_VERSION=`gcc -v | cut -f 3 -d \  `" >> $GITHUB_ENV
+          echo "COMPILER_NAME=`gcc -v | tail -n 1 | cut -f 1 -d \  `" >> $GITHUB_ENV
+          echo "COMPILER_VERSION=`gcc -v |tail -n 1 |  cut -f 3 -d \  `" >> $GITHUB_ENV
           cat $GITHUB_ENV
+          . $GITHUB_ENV
 
       - name: Upload Artifact
         id: upload-artifact
