@@ -55,13 +55,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Get TARGET from previous job
-        run: |
-          echo "TARGET=${{ needs.build.outputs.TARGET }}" >> $GITHUB_ENV
-          echo "COMPILER_NAME=${{ needs.build.outputs.COMPILER_NAME }}" >> $GITHUB_ENV
-          echo "COMPILER_VERSION=${{ needs.build.outputs.COMPILER_VERSION }}" >> $GITHUB_ENV
-          cat $GITHUB_ENV
-
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -69,7 +62,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release $TARGET-${{ github.ref }}
+          release_name: Release ${{ env.TARGET }}-${{ github.ref }}
           draft: false
           prerelease: false
 
