@@ -60,7 +60,7 @@
  * The globals.
  */
 
-#define VERSION      ("0.0.3")
+#define VERSION      ("0.0.4")
 #define FPRINTF(x,...)  if (flag_verbose) fprintf (stderr, __VA_ARGS__)
 
 static bool flag_verbose = false;
@@ -679,7 +679,7 @@ static void print_help_msg (void)
    static const char *msg[] = {
 "Lisp2Html: Convert lisp-ish s-expressions to HTML tag trees",
 "Usage:",
-"  l2g [options] PATH1 PATH2 ... PATHn",
+"  l2h [options] PATH1 PATH2 ... PATHn",
 "",
 "  Each path must be a filename of the form '*.html.lisp' or a directory",
 "name. When PATH is a filename, the file is converted and the results",
