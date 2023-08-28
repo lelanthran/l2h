@@ -49,7 +49,9 @@ jobs:
 
       - name: Set Release Name
         id: set_release_name
-        run: echo "RELEASE_NAME=Release $TARGET-${{ github.ref }}" >> $GITHUB_ENV
+        run: |
+          echo "RELEASE_NAME=Release $TARGET-${{ github.ref }}" >> $GITHUB_ENV
+          cat $GITHUB_ENV
 
       - name: Create Release
         id: create_release
