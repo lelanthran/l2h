@@ -72,23 +72,36 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset
-        id: upload-release-asset
+      - name: Upload binary
+        id: upload-release-l2h
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: |
-            l2h
-            buildinfo.txt
-            CHANGELOG
-          asset_name: |
-            l2h-binary
-            Buildinfo
-            Changelog
-          asset_content_type: |
-            application/octet-stream
-            text/plain
-            text/plain
+          asset_path: l2h
+          asset_name: l2h-binary
+          asset_content_type: application/octet-stream
+
+      - name: Upload buildinfo
+        id: upload-release-buildinfo
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: buildinfo.txt
+          asset_name: Buildinfo
+          asset_content_type: text/plain
+
+      - name: Upload CHANGELOG
+        id: upload-release-changelog
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: l2h
+          asset_name: l2h-binary
+          asset_content_type: application/octet-stream
 
