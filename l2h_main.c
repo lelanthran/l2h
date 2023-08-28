@@ -455,6 +455,8 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
    if (!node)
       return;
 
+   const char *attrs = NULL;
+   const char *delim = NULL;
    switch (node->type) {
       case node_NEWLINE:
          fprintf (outf, "\n");
@@ -470,8 +472,8 @@ static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf
          break;
 
       case node_LIST:
-         const char *attrs = node->attrs ? node->attrs : "";
-         const char *delim = node->attrs ? " " : "";
+         attrs = node->attrs ? node->attrs : "";
+         delim = node->attrs ? " " : "";
          fprintf (outf, "<%s%s%s>", node->value, delim, attrs);
          for (size_t i=0; i<node->nchildren; i++) {
             node_emit_html (node->children[i], indent + 1, outf);
