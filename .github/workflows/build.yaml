@@ -23,6 +23,7 @@ jobs:
       - name: Set buildinfo
         run: |
           echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_ENV
+          gcc -v
           echo $GITHUB_ENV
           cat $GITHUB_ENV
 
@@ -50,7 +51,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release  ${{ env.TARGET }}-${{ github.ref }}
+          release_name: Release  $TARGET-${{ github.ref }}
           draft: false
           prerelease: false
 
