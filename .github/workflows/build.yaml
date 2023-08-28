@@ -21,7 +21,11 @@ jobs:
         run: make
 
       - name: Set buildinfo
-        run: echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_ENV
+        run: |
+          echo "TARGET=`gcc -dumpmachine`" >> $GITHUB_ENV
+          echo $GITHUB_ENV
+          cat $GITHUB_ENV
+
 
       - name: Upload Artifact
         id: upload-artifact
