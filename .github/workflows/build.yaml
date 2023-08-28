@@ -34,15 +34,14 @@ jobs:
         id: upload-artifact
         uses: actions/upload-artifact@v2
         with:
-          name: l2h-binary
-          path: l2h
-
-      - name: Upload Buildinfo
-        id: upload-buildinfo
-        uses: actions/upload-artifact@v2
-        with:
-          name: buildinfo
-          path: buildinfo.txt
+          name: |
+            l2h-binary
+            Buildinfo
+            Changelog
+          path: |
+            l2h
+            buildinfo.txt
+            CHANGELOG
 
   release:
     needs: build
@@ -53,11 +52,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Download Buildinfo
-        id: download-buildinfo
+
+      - name: Download Release Assets
+        id: download-release-assets
         uses: actions/download-artifact@v2
         with:
-          name: buildinfo
+          name: |
+            l2h-binary
+            Buildinfo
+            Changelog
           path: .
 
       - name: Set Buildinfo Vars
@@ -75,13 +78,6 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Download Release Asset
-        id: download-release-asset
-        uses: actions/download-artifact@v2
-        with:
-          name: l2h-binary
-          path: .
-
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -89,7 +85,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: l2h
-          asset_name: l2h-binary
-          asset_content_type: application/octet-stream
+          asset_path: |
+            l2h
+            buildinfo.txt
+            CHANGELOG
+          asset_name: |
+            l2h-binary
+            Buildinfo
+            Changelog
+          asset_content_type: |
+            application/octet-stream
+            text/plain
+            text/plain
 
