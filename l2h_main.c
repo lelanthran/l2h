@@ -60,7 +60,7 @@
  * The globals.
  */
 
-#define VERSION      ("0.0.4")
+#define VERSION      ("0.0.5")
 #define FPRINTF(x,...)  if (flag_verbose) fprintf (stderr, __VA_ARGS__)
 
 static bool flag_verbose = false;
