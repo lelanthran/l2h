@@ -60,7 +60,7 @@
  * The globals.
  */
 
-#define VERSION      ("0.0.3")
+#define VERSION      ("0.0.4")
 #define FPRINTF(x,...)  if (flag_verbose) fprintf (stderr, __VA_ARGS__)
 
 static bool flag_verbose = false;
@@ -176,8 +176,15 @@ static void token_dump (struct token_t *token, FILE *outf)
 }
 #endif
 
-// Returns -1 for error, 0 for EOF and 1 for token
-static int token_read (struct token_t **dst,
+enum reader_action_t {
+   reader_ERROR = -1,
+   reader_EOF = 0,
+   reader_TOKEN = 1,
+   reader_CONTINUE = 2,
+};
+
+#define READER_STATE_ATTRS    (1)
+static int token_read (struct token_t **dst, uint64_t *state,
                        const char *input, size_t input_len, size_t *index)
 {
    static char errbuf[1024];
@@ -186,12 +193,18 @@ static int token_read (struct token_t **dst,
 
       // Return each newline as a token
       if (c == '\n') {
+         if ((*state) & READER_STATE_ATTRS) {
+            return reader_CONTINUE;
+         }
          *dst = token_new (token_NEWLINE, &input[(*index) - 1], 1);
-         return 1;
+         return reader_TOKEN;
       }
 
       // Compress spaces that are not newlines
       if ((c != '\n') && isspace (c)) {
+         if ((*state) & READER_STATE_ATTRS) {
+            return reader_CONTINUE;
+         }
          size_t start = (*index);
          while ((c = getnextchar (input, input_len, index)) != EOF &&
                 (c != '\n') &&
@@ -200,22 +213,25 @@ static int token_read (struct token_t **dst,
          }
          (*index)--;
          *dst = token_new (token_WHITESPACE, &input[start], (*index) - start);
-         return 1;
+         return reader_TOKEN;
       }
 
       // Handle the open/close parenthesis cases
       if (c == '(') {
+         *state = (*state) & ~READER_STATE_ATTRS;
          *dst = token_new (token_OPEN_PAREN, &input[(*index) - 1], 1);
-         return 1;
+         return reader_TOKEN;
       }
 
       if (c == ')') {
+         *state = (*state) & ~READER_STATE_ATTRS;
          *dst = token_new (token_CLOSE_PAREN, &input[(*index) - 1], 1);
-         return 1;
+         return reader_TOKEN;
       }
 
       // Handle element attributes.
       if (c == ':') {
+         *state = (*state) | READER_STATE_ATTRS;
          size_t start = *index;
          while ((c = getnextchar (input, input_len, index)) != EOF) {
             if (isspace (c) || c == '(' || c == ')' || c == '=') {
@@ -237,17 +253,18 @@ static int token_read (struct token_t **dst,
                   *index = start;
                   snprintf (errbuf, sizeof errbuf - 1, "%s", &input[*index]);
                   fprintf (stderr, "Unmatched quote [%c] at\n%s\n", c, errbuf);
-                  return -1;
+                  return reader_ERROR;
                }
             }
          }
          *dst = token_new (token_ATTR, &input[start], (*index) - start);
-         return 1;
+         return reader_TOKEN;
       }
 
 
       // Maybe at some point in the future we use a static LUT for this.
       if (isalpha (c) || ispunct (c)) {
+         *state = (*state) & ~READER_STATE_ATTRS;
          size_t start = (*index) - 1;
          if (c == '\\')
             c = getnextchar (input, input_len, index);
@@ -262,18 +279,18 @@ static int token_read (struct token_t **dst,
             }
          }
          *dst = token_new (token_SYMBOL, &input[start], (*index) - start);
-         return 1;
+         return reader_TOKEN;
       }
 
       // Nothing matches?
       snprintf (errbuf, sizeof errbuf - 1, "%s", &input[*index]);
       fprintf (stderr, "No token matches succeeded at:\n");
       fprintf (stderr, "--------\n%s\n---------\n", errbuf);
-      return -1;
+      return reader_ERROR;
    }
 
    // Reached EOF
-   return 0;
+   return reader_EOF;
 }
 
 
@@ -679,7 +696,7 @@ static void print_help_msg (void)
    static const char *msg[] = {
 "Lisp2Html: Convert lisp-ish s-expressions to HTML tag trees",
 "Usage:",
-"  l2g [options] PATH1 PATH2 ... PATHn",
+"  l2h [options] PATH1 PATH2 ... PATHn",
 "",
 "  Each path must be a filename of the form '*.html.lisp' or a directory",
 "name. When PATH is a filename, the file is converted and the results",
@@ -825,14 +842,27 @@ static int parser (struct node_t *parent,
                    const char *input, size_t input_len, size_t *index)
 {
    struct token_t *tok;
-   int rc;
+   enum reader_action_t rc;
    static char error_context[81];
+   uint64_t state = 0;
 
-   while ((rc = token_read (&tok, input, input_len, index)) > 0) {
+   while (1) {
+      rc = token_read (&tok, &state, input, input_len, index);
+      if (rc == reader_CONTINUE) {
+         continue;
+      }
+      if (rc == reader_EOF || rc == reader_ERROR) {
+         break;
+      }
+
       switch (tok->type) {
          case token_OPEN_PAREN:
             token_del (tok);
-            if ((rc = token_read (&tok, input, input_len, index)) < 1) {
+            rc = token_read (&tok, &state, input, input_len, index);
+            if (rc == reader_CONTINUE) {
+               continue;
+            }
+            if (rc == reader_EOF || rc == reader_ERROR) {
                break;
             }
 

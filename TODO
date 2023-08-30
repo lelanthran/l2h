@@ -1,4 +1,12 @@
 =================================================================
+Currently any ':' anywhere in the content is interpreted as an
+attribute unless it is escaped. Must use the `state` variable
+to prevent that - once state has moved past 'reading attributes'
+we must treat ':' as start of a normal symbol.
+=================================================================
+
+
+=================================================================
 Include doctype options for the command-line. For now it is
 probably sufficient to simply use a boolean flag that sets the
 string "<!DOCTYPE HTML>" and insist that users be aware that only
