@@ -6,6 +6,24 @@ we must treat ':' as start of a normal symbol.
 =================================================================
 
 
+
+=================================================================
+Lots of excellent feedback from HN exposure:
+1. From George Z: use `(. some text)` for parenthetical text.
+2. From Junon: Tag templates - a macro that expands in a (maybe)
+   semi-intelligent manner so that authors can create their own
+   reusable macros.
+3. From Junon: import statments. 'Nuff said.
+4. Many were not impressed by the superficial resemblance to
+   written Lisp. Maybe rename the project, or, if that is too
+   extreme, emphasise that `l2h` is *not* a Lisp dialect.
+5. From zarzavat: tighten up attributes; removing '=' makes
+   the expression more macro-friendly (See Junon's suggestion
+   above). More than one way to remove '='.
+=================================================================
+
+
+
 =================================================================
 Include doctype options for the command-line. For now it is
 probably sufficient to simply use a boolean flag that sets the
