@@ -31,10 +31,14 @@ Here's a small example of `s-exp` input and `HTML` output:
 > have substituted 2x spaces for each tab.*
 
 ## Language Rules
-There are only two rules to remember, both of which are very simple[^1]:
+There are only two main rules to remember, both of which are very simple[^1]:
 
 1. The first symbol of each s-expression is the HTML tag.
 2. Attributes for an HTML tag must be preceded with a `:` character.
+
+There's *one additional rule*:
+1. Tagnames starting with a period are all reserved for `l2h` builtin
+   functions.
 
 Here's how it looks in practice:
 
@@ -99,6 +103,20 @@ Spaces have significance to ensure that results like `He<b>ll</b>o` and
 > Good <b>Morning </b>World
 > ```
 
+### Parentheses in content
+You will eventually need to include parentheses in content. To do this use the
+special builtin tagname `.` like this:
+
+> <ins>Input</ins>
+> ```elisp
+>  (p This is how (. an aside parenthetical) should look)
+> ```
+> <ins>Output</ins>
+> ```html
+>  <p>This is how (an aside parenthetical) should look</p>
+> ```
+
+
 ### Speed
 As this is meant to be part of my workflow, speed is one of the more important
 criteria, especially complete duration (which includes startup speed). I use
@@ -150,32 +168,17 @@ For example, here is how the bug manifests, and how escaping fixes it.
 > <tag  attr1>not-attr the :not-attr is content, not tag</tag>
 > ```
 
-#### Parenthetical content is handled poorly
-
-> When the content itself is in parenthesis, those parentheses must be escaped
-> (both the open and the close parenthesis).
-
-Once again, this is how the bug manifests, and how escaping fixes it.
-
-> ```elisp
->  (div here is some (extra) content)
->  (div here is some \(extra\) content)
-> ```
->  <div>here is some <extra></extra> content</div>
->  <div>here is some (extra) content</div>
-> ```html
-> ```
-
 
 ## Installation
 Either grab the pre-compiled package (for Linux/x64 only, for now) or download
 the single `./l2h_main.c` file and  compile it (tested with `gcc`, `clang` and
 `tcc`).
 
-While this is Linux-only right now, I'll add Windows support if anyone ever
-asks for it. Same for *BSDs. I dunno about Mac as I don't have one anymore.
-I'm also working on the assumption that there's a github actions runner for
-whatever platform is being requested.
+> [!NOTE]
+> While this is Linux-only right now, I'll add Windows support if anyone ever
+> asks for it. Same for *BSDs. I dunno about Mac as I don't have one anymore.
+> I'm also working on the assumption that there's a github actions runner for
+> whatever platform is being requested.
 
 ## Help
 Feel free to log issues. Starting the program with `l2h --help` prints out all

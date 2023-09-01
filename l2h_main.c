@@ -439,7 +439,6 @@ static void node_dump (struct node_t *node, size_t indent)
       node_dump (node->children[i], indent + 1);
    }
 }
-#endif
 
 static size_t node_get_index (const struct node_t *node)
 {
@@ -475,6 +474,7 @@ static bool node_is_final (const struct node_t *node)
 
    return false;
 }
+#endif
 
 static void node_emit_html (const struct node_t *node, size_t indent, FILE *outf)
 {
@@ -846,6 +846,23 @@ cleanup:
    return ret;
 }
 
+static bool builtin_valid (const char *symbol)
+{
+   static const char *builtins[] = {
+      ".",
+      ".import",
+   };
+   static const size_t builtins_len = sizeof builtins / sizeof builtins[0];
+
+   for (size_t i=0; i<builtins_len; i++) {
+      if ((strcmp (symbol, builtins[i]))==0) {
+         return true;
+      }
+   }
+
+   return false;
+}
+
 // returns 0 for EOF, -1 for error and 1 for success
 static int parser (struct node_t *parent,
                    const char *input, size_t input_len, size_t *index)
@@ -876,11 +893,30 @@ static int parser (struct node_t *parent,
                break;
             }
 
-            struct node_t *root = node_new (parent, node_LIST, tok->text);
-            if (!root) {
-               fprintf (stderr, "OOM error constructing root node\n");
+            // Ensure that we reserve all symbols beginning with a '.' (period)
+            // because if we don't and users start using custom tagnames beginning
+            // with a period, at some point in the future the input will break.
+            if (tok->text[0] == '.' && !(builtin_valid (tok->text))) {
+               fprintf (stderr, "Unrecognised builtin: [%s]\n", tok->text);
                token_del (tok);
                return -1;
+            }
+
+            struct node_t *root = NULL;
+            if ((memcmp (&tok->text[0], ".", 2)) == 0) {
+               root = parent;
+               if (!(node_new (parent, node_SYMBOL, "("))) {
+                  fprintf (stderr, "Failed to create symbol node: [(]\n");
+                  token_del (tok);
+                  return -1;
+               }
+            } else {
+               root = node_new (parent, node_LIST, tok->text);
+               if (!root) {
+                  fprintf (stderr, "OOM error constructing root node\n");
+                  token_del (tok);
+                  return -1;
+               }
             }
             // Hack to swallow whitespace after any symbol, but preserve
             // newlines as-is. This lets us emit things like "A(tag B)C"
@@ -900,6 +936,15 @@ static int parser (struct node_t *parent,
             }
 
             rc = parser (root, input, input_len, index);
+
+            if ((memcmp (&tok->text[0], ".", 2)) == 0) {
+               root = parent;
+               if (!(node_new (parent, node_SYMBOL, ")"))) {
+                  fprintf (stderr, "Failed to create symbol node: [)]\n");
+                  token_del (tok);
+                  return -1;
+               }
+            }
             // If we have *just* parsed a complete tree starting with '('
             // and ending with ')', all symbols that follow must be content.
             // If it isn't, the reader will change it.
@@ -912,7 +957,7 @@ static int parser (struct node_t *parent,
 
          case token_SYMBOL:
             if (!(node_new (parent, node_SYMBOL, tok->text))) {
-               fprintf (stderr, "Failed to create symbol node\n");
+               fprintf (stderr, "Failed to create symbol node: [%s]\n", tok->text);
                token_del (tok);
                return -1;
             }
