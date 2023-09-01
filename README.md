@@ -131,23 +131,23 @@ sizes (when processing recursively).
 
 ## BUGS
 
-#### The ':' character is incorrectly handled.
+#### The ':' character in content is handled poorly.
 
-> The `:` character must be escaped whenever it occurs in content, otherwise
-> it is parsed as an attribute of the HTML tag.
+> The `:` character must be escaped whenever it occurs as the first piece of
+> content after a tagname, else it will be parsed as an attribute.
 >
 
 For example, here is how the bug manifests, and how escaping fixes it.
 
 > <ins>Input</ins>
 > ```
-> (tag This is some content :with a `:` character)
-> (tag This is some content \:with a `:` character)
+> (tag :attr1 :not-attr the :not-attr is content, not tag)
+> (tag :attr1 \:not-attr the :not-attr is content, not tag)
 > ```
 > <ins>Output</ins>
 > ```html
-> <tag  with>this is come content a `:` character</tag>
-> <tag>this is come content :with a `:` character</tag>
+> <tag  attr1 not-attr>the :not-attr is content, not tag</tag>
+> <tag  attr1>not-attr the :not-attr is content, not tag</tag>
 > ```
 
 #### Parenthetical content is handled poorly

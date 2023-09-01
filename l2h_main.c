@@ -183,15 +183,14 @@ enum reader_action_t {
    reader_CONTINUE = 2,
 };
 
-#define READER_STATE_TAGNAME  (1 << 0x01)
-#define READER_STATE_ATTRS    (1 << 0x02)
-#define READER_STATE_CONTENT  (1 << 0x03)
-#define STATE_SET(x,s)        ((x) | (s))
-#define STATE_CLR(x,s)        ((x) & ~(s))
-#define STATE_ISSET(x,s)      ((x) & (s))
-#define STATE_ISCLR(x,s)      ((x) & ~(s))
+enum rstate_t {
+   rstate_ERROR = 0,
+   rstate_TAGNAME,
+   rstate_ATTRS,
+   rstate_CONTENT,
+};
 
-static int token_read (struct token_t **dst, uint64_t *state,
+static int token_read (struct token_t **dst, enum rstate_t *state,
                        const char *input, size_t input_len, size_t *index)
 {
    static char errbuf[1024];
@@ -200,7 +199,8 @@ static int token_read (struct token_t **dst, uint64_t *state,
 
       // Return each newline as a token
       if (c == '\n') {
-         if (STATE_ISSET (*state, READER_STATE_ATTRS)) {
+         // Ignore this newline iff we are reading attributes
+         if (*state == rstate_ATTRS) {
             return reader_CONTINUE;
          }
          *dst = token_new (token_NEWLINE, &input[(*index) - 1], 1);
@@ -209,7 +209,8 @@ static int token_read (struct token_t **dst, uint64_t *state,
 
       // Compress spaces that are not newlines
       if ((c != '\n') && isspace (c)) {
-         if (STATE_ISSET (*state, READER_STATE_ATTRS)) {
+         // Ignore this whitespace iff we are reading attributes
+         if (*state == rstate_ATTRS) {
             return reader_CONTINUE;
          }
          size_t start = (*index);
@@ -225,20 +226,18 @@ static int token_read (struct token_t **dst, uint64_t *state,
 
       // Handle the open/close parenthesis cases
       if (c == '(') {
-         *state = STATE_CLR (*state, READER_STATE_ATTRS);
+         *state = rstate_TAGNAME;
          *dst = token_new (token_OPEN_PAREN, &input[(*index) - 1], 1);
          return reader_TOKEN;
       }
-
       if (c == ')') {
-         *state = STATE_CLR (*state, READER_STATE_ATTRS);
          *dst = token_new (token_CLOSE_PAREN, &input[(*index) - 1], 1);
          return reader_TOKEN;
       }
 
-      // Handle element attributes.
-      if (c == ':') {
-         *state = STATE_SET (*state, READER_STATE_ATTRS);
+      // Handle element attributes, but not if we're reading content already
+      if (c == ':' && *state != rstate_CONTENT) {
+         *state = rstate_ATTRS;
          size_t start = *index;
          while ((c = getnextchar (input, input_len, index)) != EOF) {
             if (isspace (c) || c == '(' || c == ')' || c == '=') {
@@ -268,10 +267,13 @@ static int token_read (struct token_t **dst, uint64_t *state,
          return reader_TOKEN;
       }
 
-
+      // If nothing else matches, then this is a symbol (content or tagname)
       // Maybe at some point in the future we use a static LUT for this.
       if (isalpha (c) || ispunct (c)) {
-         *state = STATE_CLR (*state, READER_STATE_ATTRS);
+         // If we are expecting a tagname, leave the state as it is, otherwise
+         // from this point on we are expecting content only.
+         if (*state != rstate_TAGNAME)
+            *state = rstate_CONTENT;
          size_t start = (*index) - 1;
          if (c == '\\')
             c = getnextchar (input, input_len, index);
@@ -851,7 +853,8 @@ static int parser (struct node_t *parent,
    struct token_t *tok;
    enum reader_action_t rc;
    static char error_context[81];
-   uint64_t state = 0;
+   // Starting off in the error state does not trigger special behaviour
+   enum rstate_t state = rstate_ERROR;
 
    while (1) {
       rc = token_read (&tok, &state, input, input_len, index);
@@ -897,6 +900,10 @@ static int parser (struct node_t *parent,
             }
 
             rc = parser (root, input, input_len, index);
+            // If we have *just* parsed a complete tree starting with '('
+            // and ending with ')', all symbols that follow must be content.
+            // If it isn't, the reader will change it.
+            state = rstate_CONTENT;
             break;
 
          case token_CLOSE_PAREN:
