@@ -61,7 +61,7 @@ If HTML was balanced we wouldn't have a problem - comments would
 be indicated like this:
    "<!--> this is a comment </!-->
 or like this:
-   "<!-- this is a comment>
+   "<!-- this is a comment />
 
 But nooooo ...
 

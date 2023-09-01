@@ -5,7 +5,7 @@
    (body
       (h1 :class="c1 c2 c3" :readonly This is the heading)
       (div :class="fle\[x"
-         The quick (i brown fox) jumped (b over the) red #fff000 lazy dog)
+         The quick (i brown fox) :jumped (b over the) red #fff000 lazy dog)
       (div :class="lorem"
 
 (p Lorem ipsum dolor sit amet, consectetur adi(b pisc)ing elit, sed do eiusmod tempor

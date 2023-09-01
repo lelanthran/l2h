@@ -183,7 +183,14 @@ enum reader_action_t {
    reader_CONTINUE = 2,
 };
 
-#define READER_STATE_ATTRS    (1)
+#define READER_STATE_TAGNAME  (1 << 0x01)
+#define READER_STATE_ATTRS    (1 << 0x02)
+#define READER_STATE_CONTENT  (1 << 0x03)
+#define STATE_SET(x,s)        ((x) | (s))
+#define STATE_CLR(x,s)        ((x) & ~(s))
+#define STATE_ISSET(x,s)      ((x) & (s))
+#define STATE_ISCLR(x,s)      ((x) & ~(s))
+
 static int token_read (struct token_t **dst, uint64_t *state,
                        const char *input, size_t input_len, size_t *index)
 {
@@ -193,7 +200,7 @@ static int token_read (struct token_t **dst, uint64_t *state,
 
       // Return each newline as a token
       if (c == '\n') {
-         if ((*state) & READER_STATE_ATTRS) {
+         if (STATE_ISSET (*state, READER_STATE_ATTRS)) {
             return reader_CONTINUE;
          }
          *dst = token_new (token_NEWLINE, &input[(*index) - 1], 1);
@@ -202,7 +209,7 @@ static int token_read (struct token_t **dst, uint64_t *state,
 
       // Compress spaces that are not newlines
       if ((c != '\n') && isspace (c)) {
-         if ((*state) & READER_STATE_ATTRS) {
+         if (STATE_ISSET (*state, READER_STATE_ATTRS)) {
             return reader_CONTINUE;
          }
          size_t start = (*index);
@@ -218,20 +225,20 @@ static int token_read (struct token_t **dst, uint64_t *state,
 
       // Handle the open/close parenthesis cases
       if (c == '(') {
-         *state = (*state) & ~READER_STATE_ATTRS;
+         *state = STATE_CLR (*state, READER_STATE_ATTRS);
          *dst = token_new (token_OPEN_PAREN, &input[(*index) - 1], 1);
          return reader_TOKEN;
       }
 
       if (c == ')') {
-         *state = (*state) & ~READER_STATE_ATTRS;
+         *state = STATE_CLR (*state, READER_STATE_ATTRS);
          *dst = token_new (token_CLOSE_PAREN, &input[(*index) - 1], 1);
          return reader_TOKEN;
       }
 
       // Handle element attributes.
       if (c == ':') {
-         *state = (*state) | READER_STATE_ATTRS;
+         *state = STATE_SET (*state, READER_STATE_ATTRS);
          size_t start = *index;
          while ((c = getnextchar (input, input_len, index)) != EOF) {
             if (isspace (c) || c == '(' || c == ')' || c == '=') {
@@ -264,7 +271,7 @@ static int token_read (struct token_t **dst, uint64_t *state,
 
       // Maybe at some point in the future we use a static LUT for this.
       if (isalpha (c) || ispunct (c)) {
-         *state = (*state) & ~READER_STATE_ATTRS;
+         *state = STATE_CLR (*state, READER_STATE_ATTRS);
          size_t start = (*index) - 1;
          if (c == '\\')
             c = getnextchar (input, input_len, index);
