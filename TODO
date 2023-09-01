@@ -1,4 +1,11 @@
 =================================================================
+Make the speed-test.sh script also check the md5sums of all the
+generated files against the reference file.
+=================================================================
+
+
+
+=================================================================
 Currently any ':' anywhere in the content is interpreted as an
 attribute unless it is escaped. Must use the `state` variable
 to prevent that - once state has moved past 'reading attributes'
