@@ -1,3 +1,6 @@
+v0.0.5 - ???
+1. BUGFIX: Content with ':' no longer parsed as attribute.
+
 v0.0.4 - Wed 30 Aug 2023 14:02:05 SAST
 1. BUGFIX: Additional space added after start tag whenever an attribute is
 present.

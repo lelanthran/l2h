@@ -1,9 +1,34 @@
 =================================================================
+Make the speed-test.sh script also check the md5sums of all the
+generated files against the reference file.
+=================================================================
+
+
+
+=================================================================
 Currently any ':' anywhere in the content is interpreted as an
 attribute unless it is escaped. Must use the `state` variable
 to prevent that - once state has moved past 'reading attributes'
 we must treat ':' as start of a normal symbol.
 =================================================================
+
+
+
+=================================================================
+Lots of excellent feedback from HN exposure:
+1. From George Z: use `(. some text)` for parenthetical text.
+2. From Junon: Tag templates - a macro that expands in a (maybe)
+   semi-intelligent manner so that authors can create their own
+   reusable macros.
+3. From Junon: import statments. 'Nuff said.
+4. Many were not impressed by the superficial resemblance to
+   written Lisp. Maybe rename the project, or, if that is too
+   extreme, emphasise that `l2h` is *not* a Lisp dialect.
+5. From zarzavat: tighten up attributes; removing '=' makes
+   the expression more macro-friendly (See Junon's suggestion
+   above). More than one way to remove '='.
+=================================================================
+
 
 
 =================================================================
@@ -43,7 +68,7 @@ If HTML was balanced we wouldn't have a problem - comments would
 be indicated like this:
    "<!--> this is a comment </!-->
 or like this:
-   "<!-- this is a comment>
+   "<!-- this is a comment />
 
 But nooooo ...
 

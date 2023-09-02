@@ -1,6 +1,6 @@
 # l2h
 
-## Convert Lisp(-ish) S-expressions to HTML.
+## Convert **Non**Lisp S-expressions to HTML.
 
 1. Write S-expressions,
 2. Run `l2h`,
@@ -31,17 +31,21 @@ Here's a small example of `s-exp` input and `HTML` output:
 > have substituted 2x spaces for each tab.*
 
 ## Language Rules
-There are only two rules to remember, both of which are very simple[^1]:
+There are only two main rules to remember, both of which are very simple[^1]:
 
 1. The first symbol of each s-expression is the HTML tag.
 2. Attributes for an HTML tag must be preceded with a `:` character.
+
+There's *one additional rule*:
+1. Tagnames starting with a period are all reserved for `l2h` builtin
+   functions.
 
 Here's how it looks in practice:
 
 #### The first symbol of each s-expression is the HTML tag.
 
 > <ins>Input</ins>
-> ```
+> ```elisp
 >   (MyTag Some random content goes here)
 > ```
 > <ins>Output</ins>
@@ -52,7 +56,7 @@ Here's how it looks in practice:
 #### Attributes are prefixed with a `:`
 
 > <ins>Input</ins>
-> ```
+> ```elisp
 >   (MyTag :class="alert" :readonly Some random text)
 > ```
 > <ins>Output</ins>
@@ -68,7 +72,7 @@ Newlines in the source are respected as far as possible so that the
 generated HTML matches the visual structure of the source s-expression.
 
 > <ins>Input</ins>
-> ```
+> ```elisp
 > (html
 >   (body (h1 :disabled Hello world!)))
 > ```
@@ -98,6 +102,20 @@ Spaces have significance to ensure that results like `He<b>ll</b>o` and
 > Good <b>Morning</b> World
 > Good <b>Morning </b>World
 > ```
+
+### Parentheses in content
+You will eventually need to include parentheses in content. To do this use the
+special builtin tagname `.` like this:
+
+> <ins>Input</ins>
+> ```elisp
+>  (p This is how (. an aside parenthetical) should look)
+> ```
+> <ins>Output</ins>
+> ```html
+>  <p>This is how (an aside parenthetical) should look</p>
+> ```
+
 
 ### Speed
 As this is meant to be part of my workflow, speed is one of the more important
@@ -130,29 +148,37 @@ sizes (when processing recursively).
 
 
 ## BUGS
-There's one that I know off, which I will get around to fixing at some point:
 
-> The `:` character must be escaped whenever it occurs in content, otherwise
-> it is parsed as an attribute of the HTML tag.
+#### The ':' character in content is handled poorly.
+
+> The `:` character must be escaped whenever it occurs as the first piece of
+> content after a tagname, else it will be parsed as an attribute.
 >
 
 For example, here is how the bug manifests, and how escaping fixes it.
 
 > <ins>Input</ins>
 > ```
-> (tag This is some content :with a `:` character)
-> (tag This is some content \:with a `:` character)
+> (tag :attr1 :not-attr the :not-attr is content, not tag)
+> (tag :attr1 \:not-attr the :not-attr is content, not tag)
 > ```
 > <ins>Output</ins>
 > ```html
-> <tag  with>this is come content a `:` character</tag>
-> <tag>this is come content :with a `:` character</tag>
+> <tag  attr1 not-attr>the :not-attr is content, not tag</tag>
+> <tag  attr1>not-attr the :not-attr is content, not tag</tag>
 > ```
+
 
 ## Installation
 Either grab the pre-compiled package (for Linux/x64 only, for now) or download
 the single `./l2h_main.c` file and  compile it (tested with `gcc`, `clang` and
-`tcc`)
+`tcc`).
+
+> [!NOTE]
+> While this is Linux-only right now, I'll add Windows support if anyone ever
+> asks for it. Same for *BSDs. I dunno about Mac as I don't have one anymore.
+> I'm also working on the assumption that there's a github actions runner for
+> whatever platform is being requested.
 
 ## Help
 Feel free to log issues. Starting the program with `l2h --help` prints out all
@@ -183,8 +209,6 @@ error message without any processing of files or data.
 -v | --verbose     Produce extra informational messages
 -V | --version     Print the program version, then continue as normal
 -h | --help        Display this message and exit
-
-
 
 ```
 
