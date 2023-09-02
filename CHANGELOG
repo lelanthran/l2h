@@ -1,5 +1,7 @@
-v0.0.5 - ???
+v0.0.5 - Sat 02 Sep 2023 20:04:26 SAST
 1. BUGFIX: Content with ':' no longer parsed as attribute.
+2. Adds `(. text)` for parenthetical text.
+3. Reserves all tagnames starting with a period.
 
 v0.0.4 - Wed 30 Aug 2023 14:02:05 SAST
 1. BUGFIX: Additional space added after start tag whenever an attribute is
