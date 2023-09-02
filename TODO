@@ -1,16 +1,60 @@
 =================================================================
+Think about variables and templating some more.
+1. (.set <name> <value>) looks good, but we may also want to use
+   a <value> that is a subtree. Don't really want to go for
+   Lisp-quote character, but I don't see an alternative.
+
+2. (.get <name) could work nicely; the `.get` tree can be easily
+   replaced with the result of the symbol table lookup.
+
+For ease-of-use, maybe start with something simple, only set
+text so ...
+   (.set-text <name> <value>)
+and then use $<name> everywhere that text variable is used.
+
+=================================================================
+
+
+
+
+=================================================================
+Implement `.import`; there's two basic approaches:
+1. Use it as a module import, which is pointless at this point
+   because there is no variables and templates that can be used.
+2. Use `.include` to include a file verbatimo, like the way LaTeX
+   and the C preprocessor does it. This at least allows including
+   common snippets which are stored in other files (headers,
+   footers, etc).
+
+I think `.import` won't be useful until variables and templates
+are implemented, while `.include` can be useful immediately for
+common content.
+
+Mutually recursive includes will, of course, crash the processor,
+so it is important to produce some nice error messages or
+maintain a tree so that, any time an include is performed we
+check the tree to ensure that we are not including a file that
+is already in the include-tree.
+=================================================================
+
+
+
+=================================================================
+Remove the constraint that files must end in `.html.lisp`. Too
+many lispers are annoyed that this isn't a Lisp in the first
+place, and if they were to ever use this program they'd be even
+more annoyed.
+
+Maybe use the filename `.html.l2h` instead.
+=================================================================
+
+
+
+=================================================================
 Make the speed-test.sh script also check the md5sums of all the
 generated files against the reference file.
 =================================================================
 
-
-
-=================================================================
-Currently any ':' anywhere in the content is interpreted as an
-attribute unless it is escaped. Must use the `state` variable
-to prevent that - once state has moved past 'reading attributes'
-we must treat ':' as start of a normal symbol.
-=================================================================
 
 
 
