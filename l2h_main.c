@@ -597,6 +597,11 @@ static int process_file (const char *ifname)
       }
    }
 
+   if (!input) {
+      ret = EXIT_SUCCESS;
+      goto cleanup;
+   }
+
    size_t index = 0;
    input_len = strlen (input);
    int rc = parse (&root, input, input_len,  &index);
@@ -628,9 +633,8 @@ cleanup:
    free (ofname);
 
    node_del (root);
-   if (!nlines) {
-      fprintf (stderr, "%s: No input provided. See the documentation for help\n", ifname);
-      goto cleanup;
+   if (!nlines && input) {
+      fprintf (stderr, "%s: Input not processed. See the documentation for help\n", ifname);
    }
 
    free (input);
@@ -705,7 +709,7 @@ static void print_help_msg (void)
    static const char *msg[] = {
 "Lisp2Html: Convert lisp-ish s-expressions to HTML tag trees",
 "Usage:",
-"  l2h [options] PATH1 PATH2 ... PATHn",
+"  l2h [options] [PATH1 PATH2 ... PATHn]",
 "",
 "  Each path must be a filename of the form '*.html.lisp' or a directory",
 "name. When PATH is a filename, the file is converted and the results",
@@ -718,6 +722,8 @@ static void print_help_msg (void)
 "not recursively processed. If the option '-s' or '--stdio' is specified",
 "then input is read from stdin and written to stdout. All pathnames are",
 "ignored when '-s' or '--stdio' is specified.",
+"",
+"  If no paths are specified, then input is read from stdin.",
 "",
 "  The following options are recognised. Unrecognised options produce an",
 "error message without any processing of files or data.",
@@ -800,9 +806,8 @@ int main (int argc, char **argv)
    }
 
 
-   if (!paths && !flag_stdio && !flag_recurse) {
-      fprintf (stderr, "No pathnames specified, aborting\n");
-      errcount++;
+   if (!paths && !flag_recurse) {
+      flag_stdio = true;
    }
 
    if (errcount) {
